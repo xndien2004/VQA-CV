@@ -16,8 +16,6 @@ STRICT_SYSTEM_PROMPT = (
     "4. KHÔNG thêm dấu câu ở cuối nếu không phải một phần của đáp án."
 )
 
-
-
 class ViVQAProcessor:
     """Unified image + text processor for ViVQA (Qwen2 + SigLIP).
 
@@ -67,8 +65,6 @@ class ViVQAProcessor:
 
         return cls(tokenizer=tokenizer, image_processor=image_processor, system_prompt=system_prompt)
 
-    # ===== Prompt & chat template =====
-
     def build_prompt(self, question: str) -> str:
         """Build the text prompt for a VQA question.
 
@@ -85,8 +81,6 @@ class ViVQAProcessor:
             "<|im_end|>\n"
             "<|im_start|>assistant\n"
         )
-
-    # ===== Training-time API =====
 
     def preprocess_train(
         self,
@@ -120,14 +114,9 @@ class ViVQAProcessor:
             "images": pixel_values,
             "input_ids": input_ids,
             "labels": labels,
-            "prompt_ids": prompt_ids,
-            # raw text fields for logging/saving later if needed
-            "prompt": prompt,
-            "question": question,
-            "answer": answer,
+            "prompt_ids": prompt_ids
         }
 
-    # ===== Inference / chat-style API =====
 
     def preprocess_infer(
         self,
@@ -147,7 +136,6 @@ class ViVQAProcessor:
 
         prompt = self.build_prompt(question)
         if not add_generation_prompt:
-            # Optionally remove the assistant block for a different template
             prompt = prompt.replace("<|im_start|>assistant\n", "")
 
         prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=False)
@@ -155,7 +143,5 @@ class ViVQAProcessor:
 
         return {
             "images": pixel_values,
-            "prompt_ids": prompt_ids,
-            "prompt": prompt,
-            "question": question,
+            "prompt_ids": prompt_ids
         }

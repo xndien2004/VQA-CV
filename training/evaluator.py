@@ -12,7 +12,6 @@ class Evaluator:
     def evaluate(self, dataloader, return_predictions=False):
         self.model.eval()
 
-        total_loss = 0
         total_samples = 0
         ems, f1s = [], []
         all_preds = []
@@ -20,15 +19,7 @@ class Evaluator:
         for batch in tqdm(dataloader, desc="Evaluating"):
             batch = {k: v.to(self.device) for k, v in batch.items()}
 
-            outputs = self.model(
-                input_ids=batch["input_ids"],
-                attention_mask=batch["attention_mask"],
-                images=batch["images"],
-                labels=batch["labels"],
-            )
-
             bs = batch["labels"].size(0)
-            total_loss += outputs.loss.item() * bs
             total_samples += bs
 
             prompt_attention_mask = (batch["prompt_ids"] != self.tokenizer.pad_token_id).long()
@@ -60,7 +51,6 @@ class Evaluator:
             all_preds.extend(preds_text)
 
         report = {
-            "loss": total_loss / total_samples,
             "EM": sum(ems) / len(ems),
             "F1": sum(f1s) / len(f1s)
         }

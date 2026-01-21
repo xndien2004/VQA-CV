@@ -55,12 +55,12 @@ class Trainer:
             print(f"\nEpoch {epoch+1}/{epochs}")
 
             train_loss = self.train_epoch()
+            print(f"Train Loss: {train_loss:.4f}")
             dev_metrics = self.evaluator.evaluate(self.dev_loader)
 
             log = {
                 "epoch": epoch + 1,
                 "train_loss": train_loss,
-                "dev_loss": dev_metrics["loss"],
                 "dev_EM": dev_metrics["EM"],
                 "dev_F1": dev_metrics["F1"]
             }
