@@ -58,15 +58,12 @@ def parse_args():
     parser.add_argument("--max_train_samples", type=int, default=-1)
     parser.add_argument("--max_dev_samples", type=int, default=-1)
 
-    # Log file path; if None, will be placed inside checkpoint_dir
     parser.add_argument(
         "--log_path",
         type=str,
         default=None,
         help="Path to training log JSON (defaults to checkpoint_dir/logs.json)",
     )
-
-    # Single directory for saving / loading model, optimizer, and scheduler checkpoints
     parser.add_argument(
         "--checkpoint_dir",
         type=str,
@@ -74,7 +71,6 @@ def parse_args():
         help="Directory to save/load model, optimizer, and scheduler checkpoints",
     )
 
-    # If set, resume from checkpoints in checkpoint_dir for this epoch
     parser.add_argument(
         "--resume_epoch",
         type=int,
@@ -89,19 +85,16 @@ def main():
     args = parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # If log_path is not provided, place logs inside checkpoint_dir
     if args.log_path is None:
         args.log_path = os.path.join(args.checkpoint_dir, "logs.json")
 
     tokenizer = AutoTokenizer.from_pretrained(args.llm_name, trust_remote_code=True)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = "left"
+    if tokenizer.pad_token is None or tokenizer.pad_token == tokenizer.eos_token:
+        tokenizer.add_special_tokens({"pad_token": "<pad>"})
 
-    # Add special token marking image position in the prompt
     special_tokens = {"additional_special_tokens": ["<image>"]}
     tokenizer.add_special_tokens(special_tokens)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
 
     image_token_id = tokenizer.convert_tokens_to_ids("<image>")
 

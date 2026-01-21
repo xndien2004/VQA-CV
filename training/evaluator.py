@@ -22,12 +22,8 @@ class Evaluator:
             bs = batch["labels"].size(0)
             total_samples += bs
 
-            prompt_attention_mask = (batch["prompt_ids"] != self.tokenizer.pad_token_id).long()
-            prompt_attention_mask = prompt_attention_mask.to(self.device)
-
             generated_ids = self.model.generate(
                 input_ids=batch["prompt_ids"],
-                attention_mask=prompt_attention_mask,
                 images=batch["images"],
                 max_new_tokens=64,
                 do_sample=False

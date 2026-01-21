@@ -37,14 +37,13 @@ def infer_and_eval(args):
     device = torch.device(args.device)
 
     tokenizer = AutoTokenizer.from_pretrained(args.llm_name, trust_remote_code=True)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = "left"
+    if tokenizer.pad_token is None or tokenizer.pad_token == tokenizer.eos_token:
+        tokenizer.add_special_tokens({"pad_token": "<pad>"})
 
     # Add special image token consistent with training
     special_tokens = {"additional_special_tokens": ["<image>"]}
     tokenizer.add_special_tokens(special_tokens)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
 
     image_token_id = tokenizer.convert_tokens_to_ids("<image>")
 

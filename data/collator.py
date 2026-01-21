@@ -20,11 +20,15 @@ class VQACollator:
             batch_first=True,
             padding_value=-100
         )
-        prompt_ids = pad_sequence(
-            [b["prompt_ids"] for b in batch],
-            batch_first=True,
-            padding_value=self.tokenizer.pad_token_id
+
+        prompt_seqs = [b["prompt_ids"] for b in batch]
+        max_prompt_len = max(seq.size(0) for seq in prompt_seqs)
+        prompt_ids = input_ids.new_full(
+            (len(prompt_seqs), max_prompt_len),
+            fill_value=self.tokenizer.pad_token_id,
         )
+        for i, seq in enumerate(prompt_seqs):
+            prompt_ids[i, -seq.size(0):] = seq
 
         return {
             "images": images,

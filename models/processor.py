@@ -51,14 +51,13 @@ class ViVQAProcessor:
             )
         """
         tokenizer = AutoTokenizer.from_pretrained(llm_name, trust_remote_code=True)
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.padding_side = "left"
+        if tokenizer.pad_token is None or tokenizer.pad_token == tokenizer.eos_token:
+            tokenizer.add_special_tokens({"pad_token": "<pad>"})
 
         # Add the image special token if it does not exist
         special_tokens = {"additional_special_tokens": ["<image>"]}
         tokenizer.add_special_tokens(special_tokens)
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
 
         image_processor = SiglipImageProcessor.from_pretrained(vision_tower_name, **image_kwargs)
         image_processor.crop_size = image_processor.size
