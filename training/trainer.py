@@ -2,6 +2,7 @@ import json
 import os
 from tqdm import tqdm
 import torch
+import time
 
 from utils.plot import plot_curves
 
@@ -10,20 +11,28 @@ class Trainer:
         self,
         model,
         optimizer,
+        scheduler,
         train_loader,
         dev_loader,
         evaluator,
         device,
-        log_path
+        log_path,
+        checkpoint_dir=None,
     ):
         self.model = model
         self.optimizer = optimizer
+        self.scheduler = scheduler
         self.train_loader = train_loader
         self.dev_loader = dev_loader
         self.evaluator = evaluator
         self.device = device
         self.log_path = log_path
         self.logs = []
+        # Directory to store separate checkpoints for model / optimizer / scheduler
+        if checkpoint_dir is not None:
+            self.checkpoint_dir = checkpoint_dir
+        else:
+            self.checkpoint_dir = os.path.join(os.path.dirname(self.log_path), "checkpoints")
 
     def train_epoch(self):
         self.model.train()
@@ -46,9 +55,31 @@ class Trainer:
             self.optimizer.step()
             self.optimizer.zero_grad()
 
+            if self.scheduler is not None:
+                self.scheduler.step()
+
             total_loss += loss.item()
 
         return total_loss / len(self.train_loader)
+
+    def save_checkpoint(self, epoch):
+        os.makedirs(self.checkpoint_dir, exist_ok=True)
+
+        model_path = os.path.join(self.checkpoint_dir, f"model_epoch_{epoch}.pth")
+        optimizer_path = os.path.join(self.checkpoint_dir, f"optimizer_epoch_{epoch}.pth")
+        scheduler_path = os.path.join(self.checkpoint_dir, f"scheduler_epoch_{epoch}.pth")
+
+        torch.save(self.model.state_dict(), model_path)
+        torch.save(self.optimizer.state_dict(), optimizer_path)
+        if self.scheduler is not None:
+            torch.save(self.scheduler.state_dict(), scheduler_path)
+
+        print(
+            f"Checkpoint saved for epoch {epoch}:\n"
+            f"  model -> {model_path}\n"
+            f"  optimizer -> {optimizer_path}\n"
+            f"  scheduler -> {scheduler_path if self.scheduler is not None else 'N/A'}"
+        )
 
     def train(self, epochs, early_stopping=None, save_best_path=None):
         for epoch in range(epochs):
@@ -58,9 +89,12 @@ class Trainer:
             print(f"Train Loss: {train_loss:.4f}")
             dev_metrics = self.evaluator.evaluate(self.dev_loader)
 
+            current_lr = self.optimizer.param_groups[0]["lr"]
+
             log = {
                 "epoch": epoch + 1,
                 "train_loss": train_loss,
+                "learning_rate": current_lr,
                 "dev_EM": dev_metrics["EM"],
                 "dev_F1": dev_metrics["F1"]
             }
@@ -72,6 +106,10 @@ class Trainer:
                 json.dump(self.logs, f, indent=2)
 
             print(log)
+
+            # Always save separate checkpoints for this epoch
+            self.save_checkpoint(epoch + 1)
+
             if early_stopping is not None:
                 stop, improved = early_stopping.step(dev_metrics["F1"])
 

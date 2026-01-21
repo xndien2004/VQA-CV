@@ -1,7 +1,13 @@
 import argparse
+import os
 import torch
 from torch.utils.data import DataLoader
-from transformers import AutoTokenizer, AutoConfig
+from transformers import (
+    AutoTokenizer,
+    AutoConfig,
+    get_linear_schedule_with_warmup,
+    get_cosine_schedule_with_warmup,
+)
 
 from models.language_model import ViVQAConfig, ViVQAForCausalLM
 
@@ -33,13 +39,48 @@ def parse_args():
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch_size", type=int, default=2)
     parser.add_argument("--lr", type=float, default=2e-5)
+    parser.add_argument(
+        "--scheduler_type",
+        type=str,
+        default="cosine",
+        choices=["none", "linear", "cosine"],
+        help="Learning rate scheduler type",
+    )
+    parser.add_argument(
+        "--warmup_ratio",
+        type=float,
+        default=0.03,
+        help="Portion of total steps used for LR warmup",
+    )
     parser.add_argument("--num_workers", type=int, default=2)
     parser.add_argument("--patience", type=int, default=5)
     parser.add_argument("--save_best_path", type=str, default="outputs/best_model.pth")
     parser.add_argument("--max_train_samples", type=int, default=-1)
     parser.add_argument("--max_dev_samples", type=int, default=-1)
 
-    parser.add_argument("--log_path", type=str, default="outputs/logs.json")
+    # Log file path; if None, will be placed inside checkpoint_dir
+    parser.add_argument(
+        "--log_path",
+        type=str,
+        default=None,
+        help="Path to training log JSON (defaults to checkpoint_dir/logs.json)",
+    )
+
+    # Single directory for saving / loading model, optimizer, and scheduler checkpoints
+    parser.add_argument(
+        "--checkpoint_dir",
+        type=str,
+        default="outputs/checkpoints",
+        help="Directory to save/load model, optimizer, and scheduler checkpoints",
+    )
+
+    # If set, resume from checkpoints in checkpoint_dir for this epoch
+    parser.add_argument(
+        "--resume_epoch",
+        type=int,
+        default=None,
+        help="Epoch number to resume from using checkpoint_dir (model/optimizer/scheduler_epoch_*.pth)",
+    )
 
     return parser.parse_args()
 
@@ -47,6 +88,10 @@ def parse_args():
 def main():
     args = parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # If log_path is not provided, place logs inside checkpoint_dir
+    if args.log_path is None:
+        args.log_path = os.path.join(args.checkpoint_dir, "logs.json")
 
     tokenizer = AutoTokenizer.from_pretrained(args.llm_name, trust_remote_code=True)
     if tokenizer.pad_token is None:
@@ -136,6 +181,47 @@ def main():
         lr=args.lr
     )
 
+    # Setup learning rate scheduler (optional)
+    total_training_steps = len(train_loader) * args.epochs
+    num_warmup_steps = int(args.warmup_ratio * total_training_steps)
+
+    if args.scheduler_type == "linear":
+        scheduler = get_linear_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=num_warmup_steps,
+            num_training_steps=total_training_steps,
+        )
+    elif args.scheduler_type == "cosine":
+        scheduler = get_cosine_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=num_warmup_steps,
+            num_training_steps=total_training_steps,
+        )
+    else:
+        scheduler = None
+
+    # Optionally resume from previously saved checkpoints in a single directory
+    if args.resume_epoch is not None:
+        epoch = args.resume_epoch
+        model_path = os.path.join(args.checkpoint_dir, f"model_epoch_{epoch}.pth")
+        optimizer_path = os.path.join(args.checkpoint_dir, f"optimizer_epoch_{epoch}.pth")
+        scheduler_path = os.path.join(args.checkpoint_dir, f"scheduler_epoch_{epoch}.pth")
+
+        if os.path.exists(model_path):
+            state_dict = torch.load(model_path, map_location=device)
+            model.load_state_dict(state_dict)
+            print(f"Resumed model weights from {model_path}")
+
+        if os.path.exists(optimizer_path):
+            opt_state = torch.load(optimizer_path, map_location=device)
+            optimizer.load_state_dict(opt_state)
+            print(f"Resumed optimizer state from {optimizer_path}")
+
+        if scheduler is not None and os.path.exists(scheduler_path):
+            sched_state = torch.load(scheduler_path, map_location=device)
+            scheduler.load_state_dict(sched_state)
+            print(f"Resumed scheduler state from {scheduler_path}")
+
     evaluator = Evaluator(
         model=model,
         tokenizer=tokenizer,
@@ -145,11 +231,13 @@ def main():
     trainer = Trainer(
         model=model,
         optimizer=optimizer,
+        scheduler=scheduler,
         train_loader=train_loader,
         dev_loader=dev_loader,
         evaluator=evaluator,
         device=device,
-        log_path=args.log_path
+        log_path=args.log_path,
+        checkpoint_dir=args.checkpoint_dir,
     )
 
     trainer.train(args.epochs, early_stopping=EarlyStopping(patience=args.patience), save_best_path=args.save_best_path)

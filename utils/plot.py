@@ -6,7 +6,6 @@ def plot_curves(log_path, save_path):
 
     epochs = [x["epoch"] for x in logs]
     train_loss = [x["train_loss"] for x in logs]
-    dev_loss = [x["dev_loss"] for x in logs]
     em = [x["dev_EM"] for x in logs]
     f1 = [x["dev_F1"] for x in logs]
 
@@ -14,7 +13,6 @@ def plot_curves(log_path, save_path):
 
     plt.subplot(1,2,1)
     plt.plot(epochs, train_loss, label="Train Loss")
-    plt.plot(epochs, dev_loss, label="Dev Loss")
     plt.legend()
     plt.title("Loss")
 
