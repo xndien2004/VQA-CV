@@ -15,6 +15,6 @@ python3 -m VQA-CV.train \
     --lr 2e-4 \
     --patience 3 \
     --checkpoint_dir outputs/ \
-    --max_train_samples -1 \
-    --max_dev_samples -1 \
+    --max_train_samples 100 \
+    --max_dev_samples 10 \
     2>&1 | tee train0.5B.log

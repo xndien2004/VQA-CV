@@ -69,6 +69,22 @@ class Trainer:
         optimizer_path = os.path.join(self.checkpoint_dir, f"optimizer_epoch_{epoch}.pth")
         scheduler_path = os.path.join(self.checkpoint_dir, f"scheduler_epoch_{epoch}.pth")
 
+        # Remove older checkpoints to save disk space
+        for fname in os.listdir(self.checkpoint_dir):
+            fpath = os.path.join(self.checkpoint_dir, fname)
+            if not os.path.isfile(fpath):
+                continue
+            # Keep only current epoch's checkpoints
+            if (
+                fname.startswith("model_epoch_")
+                or fname.startswith("optimizer_epoch_")
+                or fname.startswith("scheduler_epoch_")
+            ) and not fname.endswith(f"epoch_{epoch}.pth"):
+                try:
+                    os.remove(fpath)
+                except OSError:
+                    pass
+
         torch.save(self.model.state_dict(), model_path)
         torch.save(self.optimizer.state_dict(), optimizer_path)
         if self.scheduler is not None:
