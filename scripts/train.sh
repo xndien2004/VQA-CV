@@ -10,11 +10,11 @@ python3 -m VQA-CV.train \
     --train_path /home/fit02/dien_workspace/vqa/dataset/ViTextVQA_train.json \
     --dev_path /home/fit02/dien_workspace/vqa/dataset/ViTextVQA_dev.json \
     --image_root /home/fit02/dien_workspace/vqa/dataset/images/st_images \
-    --epochs 15 \
+    --epochs 20 \
     --batch_size 6 \
     --lr 2e-4 \
     --patience 3 \
     --checkpoint_dir outputs/ \
-    --max_train_samples 40 \
-    --max_dev_samples 4 \
+    --max_train_samples -1 \
+    --max_dev_samples -1 \
     2>&1 | tee train0.5B.log
