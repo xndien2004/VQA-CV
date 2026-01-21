@@ -64,6 +64,19 @@ class Trainer:
 
     def save_checkpoint(self, epoch):
         os.makedirs(self.checkpoint_dir, exist_ok=True)
+        for f in os.listdir(self.checkpoint_dir):
+            fpath = os.path.join(self.checkpoint_dir, f)
+            if not os.path.isfile(fpath):
+                continue
+            if (
+                f.startswith("model_epoch_")
+                or f.startswith("optimizer_epoch_")
+                or f.startswith("scheduler_epoch_")
+            ) and not f.endswith(f"epoch_{epoch}.pth"):
+                try:
+                    os.remove(fpath)
+                except OSError:
+                    pass
 
         model_path = os.path.join(self.checkpoint_dir, f"model_epoch_{epoch}.pth")
         optimizer_path = os.path.join(self.checkpoint_dir, f"optimizer_epoch_{epoch}.pth")
