@@ -1,0 +1,107 @@
+import json
+import os
+from tqdm import tqdm
+import torch
+
+from utils.plot import plot_curves
+
+class Trainer:
+    def __init__(
+        self,
+        model,
+        optimizer,
+        train_loader,
+        dev_loader,
+        evaluator,
+        device,
+        log_path
+    ):
+        self.model = model
+        self.optimizer = optimizer
+        self.train_loader = train_loader
+        self.dev_loader = dev_loader
+        self.evaluator = evaluator
+        self.device = device
+        self.log_path = log_path
+        self.logs = []
+
+    def train_epoch(self):
+        self.model.train()
+        total_loss = 0
+
+        for batch in tqdm(self.train_loader, desc="Training"):
+            batch = {k: v.to(self.device) for k, v in batch.items()}
+            outputs = self.model(
+                input_ids=batch["input_ids"],
+                attention_mask=batch["attention_mask"],
+                images=batch["images"],
+                labels=batch["labels"],
+            )
+
+            loss = outputs.loss
+            loss.backward()
+
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+
+            total_loss += loss.item()
+
+        return total_loss / len(self.train_loader)
+
+    def train(self, epochs, early_stopping=None, save_best_path=None):
+        for epoch in range(epochs):
+            print(f"\nEpoch {epoch+1}/{epochs}")
+
+            train_loss = self.train_epoch()
+            dev_metrics = self.evaluator.evaluate(self.dev_loader)
+
+            log = {
+                "epoch": epoch + 1,
+                "train_loss": train_loss,
+                "dev_loss": dev_metrics["loss"],
+                "dev_EM": dev_metrics["EM"],
+                "dev_F1": dev_metrics["F1"]
+            }
+
+            self.logs.append(log)
+
+            os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
+            with open(self.log_path, "w") as f:
+                json.dump(self.logs, f, indent=2)
+
+            print(log)
+            if early_stopping is not None:
+                stop, improved = early_stopping.step(dev_metrics["F1"])
+
+                if improved and save_best_path is not None:
+                    best_epoch = epoch + 1
+                    self.save_model(save_best_path)
+                    print(
+                        f"New best F1: {early_stopping.best_f1:.4f} "
+                        f"(epoch {best_epoch})"
+                    )
+
+                if stop:
+                    print(
+                        f"Early stopping at epoch {epoch+1} | "
+                        f"Best F1: {early_stopping.best_f1:.4f} "
+                        f"(epoch {best_epoch})"
+                    )
+                    break
+        
+        plot_curves(self.log_path, self.log_path.replace(".json", ".png"))
+        print(f"Training logs and plots saved to {self.log_path}")
+
+    def save_model(self, save_path):
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        torch.save(self.model.state_dict(), save_path)
+        print(f"Model saved to {save_path}")
+
+    def load_model(self, load_path):
+        self.model.load_state_dict(torch.load(load_path))
+        print(f"Model loaded from {load_path}")
+
+    def get_logs(self):
+        return self.logs
