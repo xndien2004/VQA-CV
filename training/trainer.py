@@ -166,6 +166,10 @@ class Trainer:
         torch.save(self.model.state_dict(), save_path)
         print(f"Model saved to {save_path}")
 
+        model_dir = os.path.dirname(save_path)
+        self.model.config.save_pretrained(model_dir)
+        print(f"Model configuration saved to {model_dir}")
+        
     def load_model(self, load_path):
         self.model.load_state_dict(torch.load(load_path))
         print(f"Model loaded from {load_path}")
