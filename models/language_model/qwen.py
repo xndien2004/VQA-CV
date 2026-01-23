@@ -3,7 +3,7 @@ from typing import List, Optional, Tuple
 import torch
 from transformers.models.qwen2.modeling_qwen2 import Qwen2Model, Qwen2Config, Qwen2ForCausalLM
 
-from .vivqa_arch import ViVQAMetaForCausalLM, ViVQAMetaModel
+from ..vivqa_arch import ViVQAMetaForCausalLM, ViVQAMetaModel
 
 
 class ViVQAConfig(Qwen2Config):

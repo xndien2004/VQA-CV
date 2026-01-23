@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer, AutoConfig
 
-from models.language_model import ViVQAConfig, ViVQAForCausalLM
+from models.language_model.qwen import ViVQAConfig, ViVQAForCausalLM
 from data.dataset import VQADataset
 
 from training.evaluator import Evaluator

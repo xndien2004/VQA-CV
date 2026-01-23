@@ -2,15 +2,15 @@ from abc import ABC, abstractmethod
 
 import torch
 
-from .projector import build_vision_projector
-from .vision_encoder import SiglipVisionTower
+from .multimodal_projector.builder import build_vision_projector
+from .multimodal_encoder.builder import build_vision_encoder
 
 IGNORE_INDEX = -100
 
 class ViVQAMetaModel:
     def __init__(self, config):
         if hasattr(config, "mm_vision_tower"):
-            self.vision_tower = SiglipVisionTower(config.mm_vision_tower, config, delay_load=True)
+            self.vision_tower = build_vision_encoder(config.mm_vision_tower, config)
 
     def get_vision_tower(self):
         vision_tower = getattr(self, "vision_tower", None)
@@ -26,7 +26,7 @@ class ViVQAMetaModel:
 
         vision_tower = self.get_vision_tower()
         if vision_tower is None:
-            vision_tower = SiglipVisionTower(vision_tower_name, model_args)
+            vision_tower = build_vision_encoder(vision_tower_name, self.config)
             self.vision_tower = vision_tower
         else:
             vision_tower.load_model()

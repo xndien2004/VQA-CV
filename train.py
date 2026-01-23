@@ -9,7 +9,7 @@ from transformers import (
     get_cosine_schedule_with_warmup,
 )
 
-from models.language_model import ViVQAConfig, ViVQAForCausalLM
+from models.language_model.qwen import ViVQAConfig, ViVQAForCausalLM
 
 from data.dataset import VQADataset
 from data.collator import VQACollator
