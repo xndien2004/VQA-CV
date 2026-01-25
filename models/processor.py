@@ -55,8 +55,9 @@ class ViVQAProcessor:
         if tokenizer.pad_token is None or tokenizer.pad_token == tokenizer.eos_token:
             tokenizer.add_special_tokens({"pad_token": "<pad>"})
 
-        # Add the image special token if it does not exist
-        special_tokens = {"additional_special_tokens": ["<image>"]}
+        # Add special tokens for image and image span markers
+        # Keep the order consistent with train.py / infer_eval.py
+        special_tokens = {"additional_special_tokens": ["<image>", "<im_start>", "<im_end>"]}
         tokenizer.add_special_tokens(special_tokens)
 
         image_processor = SiglipImageProcessor.from_pretrained(vision_tower_name, **image_kwargs)
@@ -74,7 +75,7 @@ class ViVQAProcessor:
             f"{self.system_prompt}\n"
             "<|im_end|>\n"
             "<|im_start|>user\n"
-            "<image>\n"
+            "<im_start> <image> <im_end>\n"
             f"Câu hỏi: {question}\n"
             "Trả lời ngắn gọn (chỉ đáp án):"
             "<|im_end|>\n"

@@ -93,10 +93,13 @@ def main():
     if tokenizer.pad_token is None or tokenizer.pad_token == tokenizer.eos_token:
         tokenizer.add_special_tokens({"pad_token": "<pad>"})
 
-    special_tokens = {"additional_special_tokens": ["<image>"]}
+    # Add special tokens for image span markers.
+    special_tokens = {"additional_special_tokens": ["<|vision_start|>", "<|image_pad|>", "<|vision_end|>"]}
     tokenizer.add_special_tokens(special_tokens)
 
-    image_token_id = tokenizer.convert_tokens_to_ids("<image>")
+    image_token_id = tokenizer.convert_tokens_to_ids("<|image_pad|>")
+    image_start_token_id = tokenizer.convert_tokens_to_ids("<|vision_start|>")
+    image_end_token_id = tokenizer.convert_tokens_to_ids("<|vision_end|>")
 
     # Build ViVQA config from base Qwen3 config
     base_config = AutoConfig.from_pretrained(args.llm_name, trust_remote_code=True)
@@ -106,6 +109,8 @@ def main():
     config.mm_projector_type = args.vision_projector_type
     config.use_mm_proj = True
     config.image_token_id = image_token_id
+    config.image_start_token_id = image_start_token_id
+    config.image_end_token_id = image_end_token_id
     config.tokenizer_model_max_length = getattr(tokenizer, "model_max_length", None)
     config.tokenizer_padding_side = tokenizer.padding_side
 

@@ -79,5 +79,3 @@ class VQADataset(Dataset):
 
     def _load_image(self, filename):
         return Image.open(self.image_root / filename).convert("RGB")
-
-    # build_prompt giờ đã được gói trong ViVQAProcessor

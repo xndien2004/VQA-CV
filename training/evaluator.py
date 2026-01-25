@@ -40,9 +40,11 @@ class Evaluator:
             )
 
             for p, g in zip(preds_text, labels_text):
-                print(f"Pred: {p} | Gold: {g}")
-                ems.append(exact_match(p, g))
-                f1s.append(f1_score(p, g))
+                em = exact_match(p, g)
+                f1 = f1_score(p, g)
+                print(f"Pred: {p} | Gold: {g} | EM: {em} | F1: {f1}")
+                ems.append(em)
+                f1s.append(f1)
 
             all_preds.extend(preds_text)
 
