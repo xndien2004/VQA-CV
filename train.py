@@ -94,12 +94,14 @@ def main():
         tokenizer.add_special_tokens({"pad_token": "<pad>"})
 
     # Add special tokens for image span markers.
-    special_tokens = {"additional_special_tokens": ["<|vision_start|>", "<|image_pad|>", "<|vision_end|>"]}
+    # These must match the tokens used in ViVQAProcessor.build_prompt
+    # so that <image> positions are replaced by visual embeddings.
+    special_tokens = {"additional_special_tokens": ["<image>", "<im_start>", "<im_end>"]}
     tokenizer.add_special_tokens(special_tokens)
 
-    image_token_id = tokenizer.convert_tokens_to_ids("<|image_pad|>")
-    image_start_token_id = tokenizer.convert_tokens_to_ids("<|vision_start|>")
-    image_end_token_id = tokenizer.convert_tokens_to_ids("<|vision_end|>")
+    image_token_id = tokenizer.convert_tokens_to_ids("<image>")
+    image_start_token_id = tokenizer.convert_tokens_to_ids("<im_start>")
+    image_end_token_id = tokenizer.convert_tokens_to_ids("<im_end>")
 
     # Build ViVQA config from base Qwen3 config
     base_config = AutoConfig.from_pretrained(args.llm_name, trust_remote_code=True)

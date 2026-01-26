@@ -3,17 +3,24 @@ class EarlyStopping:
         self.patience = patience
         self.min_delta = min_delta
 
-        self.best_f1 = None
+        self.best_metric = None
         self.counter = 0
         self.should_stop = False
 
-    def step(self, f1):
-        if self.best_f1 is None:
-            self.best_f1 = f1
+    def step(self, value):
+        """Update early stopping state.
+
+        Args:
+            value (float): Current value of the monitored validation metric.
+        Returns:
+            should_stop (bool), improved (bool)
+        """
+        if self.best_metric is None:
+            self.best_metric = value
             return False, True
 
-        if f1 > self.best_f1 + self.min_delta:
-            self.best_f1 = f1
+        if value > self.best_metric + self.min_delta:
+            self.best_metric = value
             self.counter = 0
             return False, True
         else:

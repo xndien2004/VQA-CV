@@ -140,20 +140,20 @@ class Trainer:
             self.save_checkpoint(epoch + 1)
 
             if early_stopping is not None:
-                stop, improved = early_stopping.step(dev_metrics["F1"])
+                stop, improved = early_stopping.step(dev_metrics["EM"])
 
                 if improved and save_best_path is not None:
                     best_epoch = epoch + 1
                     self.save_model(save_best_path)
                     print(
-                        f"New best F1: {early_stopping.best_f1:.4f} "
+                        f"New best EM: {early_stopping.best_metric:.4f} "
                         f"(epoch {best_epoch})"
                     )
 
                 if stop:
                     print(
                         f"Early stopping at epoch {epoch+1} | "
-                        f"Best F1: {early_stopping.best_f1:.4f} "
+                        f"Best EM: {early_stopping.best_metric:.4f} "
                         f"(epoch {best_epoch})"
                     )
                     break
