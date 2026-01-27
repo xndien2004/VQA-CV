@@ -85,7 +85,7 @@ def infer_and_eval(args):
 
     model.resize_token_embeddings(len(tokenizer))
 
-    state_dict = torch.load(os.path.join(args.output_path, "best_model.pth"), map_location="cpu")
+    state_dict = torch.load(f"{args.output_path}/best_model.pth", map_location="cpu")
     model.load_state_dict(state_dict)
     model.to(device)
     model.eval()
@@ -96,6 +96,7 @@ def infer_and_eval(args):
         image_root=args.image_root,
         tokenizer=tokenizer,
         vision_processor_name=args.image_encoder_name,
+        # max_sample=10
     )
 
     dataloader = DataLoader(
@@ -117,12 +118,12 @@ def infer_and_eval(args):
     data_origin = dataset.data
     data_new = []
     for data_final, result, em, f1 in zip(data_origin, results, ems, f1s):
-        data_final["predicted_answer"] = result["predicted_answer"]
+        data_final["predicted_answer"] = result
 
         data_final["EM"] = em
         data_final["F1"] = f1
 
-        image_path = dataset.image_root / data_final["file_name"]
+        image_path = dataset.image_root / data_final["filename"]
 
         data_new.append({
             "image_path": str(image_path),
@@ -135,18 +136,23 @@ def infer_and_eval(args):
             "F1_all": metrics['F1']
         })
 
+    
+    with open(f"{args.output_path}/predictions.json", "w", encoding="utf-8") as f:
+        json.dump(data_new, f, ensure_ascii=False, indent=4)
+
     data0 = [data for data in data_new if data["EM"] == 0]
     data1 = [data for data in data_new if data["EM"] == 1]
 
-    data0["image"] = [Image.open(data["image_path"]).convert("RGB") for data in data0]
-    data1["image"] = [Image.open(data["image_path"]).convert("RGB") for data in data1]
+    for item in data0:
+        item["image"] = Image.open(item["image_path"]).convert("RGB")
 
-    plot_image_predictions(data0[:5], os.path.join(args.output_path, "incorrect_predictions.png"))
-    plot_image_predictions(data1[:5], os.path.join(args.output_path, "correct_predictions.png"))
-
-
-    with open(os.path.join(args.output_path, "predictions.json"), "w", encoding="utf-8") as f:
-        json.dump(data_new, f, ensure_ascii=False, indent=4)
+    for item in data1:
+        item["image"] = Image.open(item["image_path"]).convert("RGB")
+    try:
+        plot_image_predictions(data0[:5], f"{args.output_path}/incorrect_predictions.png")
+        plot_image_predictions(data1[:5], f"{args.output_path}/correct_predictions.png")
+    except Exception as e:
+        print(f"Error in plotting image predictions: {e}")
 
 
     print("===== EVALUATION RESULT =====")

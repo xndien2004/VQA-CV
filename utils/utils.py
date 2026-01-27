@@ -26,11 +26,13 @@ def load_json(data_path):
     df["answer"] = df["answers"].apply(
         lambda x: ast.literal_eval(x)[0] if isinstance(x, str) else x[0]
     )
-
+    print(df.columns)
     return df
 
 def load_csv(data_path):
-    return pd.read_csv(data_path)
+    df =  pd.read_csv(data_path)
+    print(df.columns)
+    return df
 
 def load_data(data_path):
     if is_json(data_path):

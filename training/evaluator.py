@@ -26,7 +26,9 @@ class Evaluator:
                 input_ids=batch["prompt_ids"],
                 images=batch["images"],
                 max_new_tokens=64,
-                do_sample=False
+                do_sample=False,
+                temperature=0.0,
+                num_beams=3,
             )
             generated_ids = generated_ids[:, batch["prompt_ids"].size(1):]
             preds_text = self.tokenizer.batch_decode(
