@@ -54,7 +54,7 @@ class Evaluator:
         }
 
         if return_predictions:
-            return report, all_preds
+            return report, all_preds, ems, f1s
         return report
 
 

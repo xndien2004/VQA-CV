@@ -1,19 +1,20 @@
 import argparse
 import json
 import torch
+import os
+from PIL import Image
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer, AutoConfig
 
 from models.language_model.qwen import ViVQAConfig, ViVQAForCausalLM
 from data.dataset import VQADataset
-
 from training.evaluator import Evaluator
 from data.collator import VQACollator
+from utils.plot import plot_image_predictions
 
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--ckpt", type=str, required=True)
     parser.add_argument("--llm_name", type=str, required=True)
     parser.add_argument("--image_encoder_name", type=str, required=True, help="SigLIP vision tower name/path")
     parser.add_argument("--vision_projector_type", type=str, default="mlp2x_gelu",
@@ -28,7 +29,7 @@ def parse_args():
     parser.add_argument("--max_new_tokens", type=int, default=30)
     parser.add_argument("--device", type=str, default="cuda")
 
-    parser.add_argument("--output_path", type=str, default="predictions.json")
+    parser.add_argument("--output_path", type=str, default="outputs")
 
     return parser.parse_args()
 
@@ -84,7 +85,7 @@ def infer_and_eval(args):
 
     model.resize_token_embeddings(len(tokenizer))
 
-    state_dict = torch.load(args.ckpt, map_location="cpu")
+    state_dict = torch.load(os.path.join(args.output_path, "best_model.pth"), map_location="cpu")
     model.load_state_dict(state_dict)
     model.to(device)
     model.eval()
@@ -111,18 +112,42 @@ def infer_and_eval(args):
         device=device
     )
 
-    metrics, results = evaluator.evaluate(dataloader, return_predictions=True)
+    metrics, results, ems, f1s = evaluator.evaluate(dataloader, return_predictions=True)
 
-    with open(args.output_path, "w", encoding="utf-8") as f:
-        json.dump(
-            {
-                "metrics": metrics,
-                "results": results
-            },
-            f,
-            ensure_ascii=False,
-            indent=2
-        )
+    data_origin = dataset.data
+    data_new = []
+    for data_final, result, em, f1 in zip(data_origin, results, ems, f1s):
+        data_final["predicted_answer"] = result["predicted_answer"]
+
+        data_final["EM"] = em
+        data_final["F1"] = f1
+
+        image_path = dataset.image_root / data_final["file_name"]
+
+        data_new.append({
+            "image_path": str(image_path),
+            "question": data_final["question"],
+            "ground_truth": data_final["answer"],
+            "prediction": data_final["predicted_answer"],
+            "EM": data_final["EM"],
+            "F1": data_final["F1"],
+            "EM_all": metrics['EM'],
+            "F1_all": metrics['F1']
+        })
+
+    data0 = [data for data in data_new if data["EM"] == 0]
+    data1 = [data for data in data_new if data["EM"] == 1]
+
+    data0["image"] = [Image.open(data["image_path"]).convert("RGB") for data in data0]
+    data1["image"] = [Image.open(data["image_path"]).convert("RGB") for data in data1]
+
+    plot_image_predictions(data0[:5], os.path.join(args.output_path, "incorrect_predictions.png"))
+    plot_image_predictions(data1[:5], os.path.join(args.output_path, "correct_predictions.png"))
+
+
+    with open(os.path.join(args.output_path, "predictions.json"), "w", encoding="utf-8") as f:
+        json.dump(data_new, f, ensure_ascii=False, indent=4)
+
 
     print("===== EVALUATION RESULT =====")
     print(f"EM : {metrics['EM']}%")

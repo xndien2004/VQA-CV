@@ -24,3 +24,18 @@ def plot_curves(log_path, save_path):
 
     plt.savefig(save_path)
     plt.show()
+
+def plot_image_predictions(data, save_path):
+    num_images = len(data)
+    plt.figure(figsize=(15, 5 * num_images))
+
+    for i, (image, question, ground_truth, prediction) in enumerate(data):
+        plt.subplot(num_images, 1, i + 1)
+        plt.imshow(image)
+        plt.axis('off')
+        title = f"Q: {question}\nGT: {ground_truth} | Pred: {prediction}"
+        plt.title(title)
+
+    plt.tight_layout()
+    plt.savefig(save_path)
+    plt.show()
