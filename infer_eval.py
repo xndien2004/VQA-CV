@@ -149,8 +149,8 @@ def infer_and_eval(args):
     for item in data1:
         item["image"] = Image.open(item["image_path"]).convert("RGB")
     try:
-        plot_image_predictions(data0[:5], f"{args.output_path}/incorrect_predictions.png")
-        plot_image_predictions(data1[:5], f"{args.output_path}/correct_predictions.png")
+        plot_image_predictions(data0[:6], f"{args.output_path}/incorrect_predictions.png")
+        plot_image_predictions(data1[:6], f"{args.output_path}/correct_predictions.png")
     except Exception as e:
         print(f"Error in plotting image predictions: {e}")
 

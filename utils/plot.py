@@ -27,7 +27,7 @@ def plot_curves(log_path, save_path):
     plt.savefig(save_path)
     plt.show()
 
-def plot_image_predictions(data, save_path, max_cols=5):
+def plot_image_predictions(data, save_path, max_cols=3):
     num_images = len(data)
     if num_images == 0:
         return
