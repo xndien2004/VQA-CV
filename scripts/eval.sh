@@ -52,7 +52,7 @@ python3 -m VQA-CV.infer_eval \
   --vision_projector_type "mlp2x_gelu" \
   --data_path "${DATA_PATH}" \
   --image_root "${IMAGE_ROOT}" \
-  --batch_size 50 \
+  --batch_size 40 \
   --max_new_tokens 64 \
   --device "cuda" \
   --output_path "${OUTPUT_PATH}" \

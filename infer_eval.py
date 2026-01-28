@@ -96,7 +96,7 @@ def infer_and_eval(args):
         image_root=args.image_root,
         tokenizer=tokenizer,
         vision_processor_name=args.image_encoder_name,
-        # max_sample=10
+        max_sample=30
     )
 
     dataloader = DataLoader(

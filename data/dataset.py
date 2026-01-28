@@ -15,12 +15,14 @@ class VQADataset(Dataset):
         self,
         data_path: str,
         image_root: str,
-        tokenizer,
-        vision_processor_name: str,
+        caption_path: str = None,
+        tokenizer: any = None,
+        vision_processor_name: str=None,
         max_sample: int = -1,
     ):
         self.data_path = Path(data_path)
         self.image_root = Path(image_root)
+        self.caption_path = caption_path
         self.tokenizer = tokenizer
 
         image_processor = SiglipImageProcessor.from_pretrained(vision_processor_name)
@@ -34,6 +36,13 @@ class VQADataset(Dataset):
 
     def __len__(self):
         return len(self.data)
+    
+    def _get_caption(self, image_filename):
+        if self.caption_path is None:
+            return None
+        with open(self.caption_path, 'r', encoding="utf-8") as f:
+            captions = json.load(f)
+        return captions.get(image_filename, None)
 
     def __getitem__(self, idx):
         item = self.data[idx]
@@ -42,6 +51,7 @@ class VQADataset(Dataset):
             image=image,
             question=item["question"],
             answer=item["answer"],
+            caption=self._get_caption(item["filename"]),
         )
 
         return {

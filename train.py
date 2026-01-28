@@ -35,6 +35,7 @@ def parse_args():
     parser.add_argument("--train_path", type=str, required=True)
     parser.add_argument("--dev_path", type=str, required=True)
     parser.add_argument("--image_root", type=str, required=True)
+    parser.add_argument("--caption_path", type=str, default=None)
 
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch_size", type=int, default=2)
@@ -147,6 +148,7 @@ def main():
     train_set = VQADataset(
         data_path=args.train_path,
         image_root=args.image_root,
+        caption_path=args.caption_path,
         tokenizer=tokenizer,
         vision_processor_name=args.image_encoder_name,
         max_sample=args.max_train_samples
@@ -154,6 +156,7 @@ def main():
     dev_set = VQADataset(
         data_path=args.dev_path,
         image_root=args.image_root,
+        caption_path=args.caption_path,
         tokenizer=tokenizer,
         vision_processor_name=args.image_encoder_name,
         max_sample=args.max_dev_samples

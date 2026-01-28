@@ -6,15 +6,7 @@ from transformers import AutoTokenizer, SiglipImageProcessor
 from data.preprocessing import preprocess_sentence
 
 
-STRICT_SYSTEM_PROMPT = (
-    "Bạn là trợ lý trích xuất thông tin chính xác từ hình ảnh. "
-    "Nhiệm vụ: trả lời câu hỏi CHỈ dựa trên nội dung trong ảnh.\n"
-    "Quy tắc:\n"
-    "1. CHỈ xuất ra câu trả lời cuối cùng.\n"
-    "2. KHÔNG giải thích, KHÔNG suy luận.\n"
-    "3. KHÔNG viết câu đầy đủ (ví dụ: viết 'Heineken', không viết 'Thương hiệu là Heineken').\n"
-    "4. KHÔNG thêm dấu câu ở cuối nếu không phải một phần của đáp án."
-)
+STRICT_SYSTEM_PROMPT = "Bạn là trợ lý chuyên trả lời câu hỏi dựa trên nội dung văn bản xuất hiện trong hình ảnh và các thông tin khác bổ sung từ hình ảnh (nếu có)."
 
 class ViVQAProcessor:
     """Unified image + text processor for ViVQA (Qwen2 + SigLIP).
@@ -65,11 +57,9 @@ class ViVQAProcessor:
 
         return cls(tokenizer=tokenizer, image_processor=image_processor, system_prompt=system_prompt)
 
-    def build_prompt(self, question: str) -> str:
-        """Build the text prompt for a VQA question.
+    def build_prompt(self, question: str, caption: Optional[str] = None) -> str:
+        caption_text = f"Mô tả hình ảnh: {caption}\n" if caption is not None else ""
 
-        Format matches the original dataset: system block + user block + <image> token.
-        """
         return (
             "<|im_start|>system\n"
             f"{self.system_prompt}\n"
@@ -77,6 +67,7 @@ class ViVQAProcessor:
             "<|im_start|>user\n"
             "<im_start> <image> <im_end>\n"
             f"Câu hỏi: {question}\n"
+            f"{caption_text}"
             "Trả lời ngắn gọn (chỉ đáp án):"
             "<|im_end|>\n"
             "<|im_start|>assistant\n"
@@ -87,6 +78,7 @@ class ViVQAProcessor:
         image,
         question: str,
         answer: str,
+        caption: Optional[str] = None,
     ) -> Dict[str, torch.Tensor]:
         """Preprocess a single training example (image + question + answer).
 
@@ -97,10 +89,9 @@ class ViVQAProcessor:
 
         image_inputs = self.image_processor(images=image, return_tensors="pt")
         pixel_values = image_inputs["pixel_values"].squeeze(0)
+        prompt = self.build_prompt(question, caption=caption)
 
-        prompt = self.build_prompt(question)
-
-        prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=False)
+        prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=False, max_length=2048, truncation=True)
         answer_ids = self.tokenizer.encode(answer + " <|im_end|>", add_special_tokens=False)
 
         prompt_ids = torch.tensor(prompt_ids, dtype=torch.long)
