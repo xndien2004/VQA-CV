@@ -30,10 +30,13 @@ class VQACollator:
         for i, seq in enumerate(prompt_seqs):
             prompt_ids[i, -seq.size(0):] = seq
 
+        image_ids = torch.tensor([b["image_id"] for b in batch])
+
         return {
             "images": images,
             "input_ids": input_ids,
             "attention_mask": attention_mask,
             "labels": labels,
             "prompt_ids": prompt_ids,
+            "image_ids": image_ids,
         }

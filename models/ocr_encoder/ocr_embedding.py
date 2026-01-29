@@ -2,72 +2,7 @@ import torch
 from torch import nn
 import numpy as np
 
-class VisionOcrEmbedding(nn.Module):
-    def __init__(self, config):
-        super().__init__()      
-        self.linear_det_features = nn.Linear(config.d_det, config.d_model)
-        self.linear_rec_features = nn.Linear(config.d_rec, config.d_model)
-        self.linear_boxes = nn.Linear(4,config.d_model)
-
-        self.layer_norm_det = nn.LayerNorm(config.d_model)
-        self.layer_norm_rec = nn.LayerNorm(config.d_model)
-        self.layer_norm_boxes = nn.LayerNorm(config.d_model)
-
-        self.gelu = nn.GELU()
-        self.dropout = nn.Dropout(0.1)
-        self.cuda_device=config.cuda_device
-        self.device = torch.device(f'{self.cuda_device}' if torch.cuda.is_available() else 'cpu')
-
-    def forward(self,ocr_info):
-        det_features = torch.stack([det["det_features"] for det in ocr_info]).to(self.device)
-        rec_features = torch.stack([rec["rec_features"] for rec in ocr_info]).to(self.device)
-        boxes = torch.stack([box["boxes"] for box in ocr_info]).to(self.device)
-        
-        det_features=self.linear_det_features(det_features)
-        rec_features=self.linear_rec_features(rec_features)
-        boxes = self.linear_boxes(boxes)
-        
-        ocr_features = self.layer_norm_det(det_features) + self.layer_norm_rec(rec_features) + self.layer_norm_boxes(boxes)
-        ocr_features = self.dropout(self.gelu(ocr_features))
-        return ocr_features
-    
-class SpatialModule(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-        self.top_left_x = nn.Embedding(
-            config.max_2d_position_embeddings, config.d_model)
-        self.bottom_right_x = nn.Embedding(
-            config.max_2d_position_embeddings, config.d_model)
-        self.top_left_y = nn.Embedding(
-            config.max_2d_position_embeddings, config.d_model)
-        self.bottom_right_y = nn.Embedding(
-            config.max_2d_position_embeddings, config.d_model)
-        self.width_emb = nn.Embedding(
-            config.max_2d_position_embeddings, config.d_model)
-        self.height_emb = nn.Embedding(
-            config.max_2d_position_embeddings, config.d_model)
-        self.max_2d_position_embeddings=config.max_2d_position_embeddings
-        self.cuda_device=config.cuda_device
-        self.device = torch.device(f'{self.cuda_device}' if torch.cuda.is_available() else 'cpu')
-
-    def forward(self, ocr_info):
-        coordinates = torch.stack([bbox["boxes"] for bbox in ocr_info]).to(torch.int).to(self.device)
-        w=torch.stack([w["width"] for w in ocr_info]).to(torch.int).to(self.device)
-        h=torch.stack([h["height"] for h in ocr_info]).to(torch.int).to(self.device)
-
-        coordinates=torch.where(coordinates >= self.max_2d_position_embeddings, self.max_2d_position_embeddings - 1, coordinates)
-        h=torch.where(h>=self.max_2d_position_embeddings,self.max_2d_position_embeddings-1,h)
-        w=torch.where(w>=self.max_2d_position_embeddings,self.max_2d_position_embeddings-1,w)
-        
-        top_left_x_feat = self.top_left_x(coordinates[:, :, 0])
-        top_left_y_feat = self.top_left_y(coordinates[:, :, 1])
-        bottom_right_x_feat = self.bottom_right_x(coordinates[:, :, 2])
-        bottom_right_y_feat = self.bottom_right_y(coordinates[:, :, 3])
-        width_feat = self.width_emb(w.unsqueeze(1))
-        height_feat = self.height_emb(h.unsqueeze(1))
-        layout_feature = top_left_x_feat + top_left_y_feat + \
-            bottom_right_x_feat + bottom_right_y_feat + width_feat + height_feat
-        return layout_feature
+from .ocr_encoding import Vision_Encode_Ocr_Feature
 
 class ScaledDotProductAttention(nn.Module):
     '''
@@ -123,8 +58,6 @@ class ScaledDotProductAttention(nn.Module):
 class SpatialCirclePosition(ScaledDotProductAttention):
     def __init__(self, config) -> None:
         super().__init__(config)
-        self.cuda_device=config.cuda_device
-        self.device = torch.device(f'{self.cuda_device}' if torch.cuda.is_available() else 'cpu')
         self.dist_embedding = nn.Embedding(
             num_embeddings=config.num_distances,
             embedding_dim=config.num_attention_heads
@@ -208,19 +141,19 @@ class SemanticOCREmbedding(nn.Module):
 
         self.max_scene_text = config.max_scene_text
 
-        self.linear_det_features = nn.Linear(config.d_det, config.d_model)
-        self.linear_rec_features = nn.Linear(config.d_rec, config.d_model)
-        self.linear_boxes = nn.Linear(4,config.d_model)
+        d_model = config.hidden_size
 
-        self.layer_norm_det = nn.LayerNorm(config.d_model)
-        self.layer_norm_rec = nn.LayerNorm(config.d_model)
-        self.layer_norm_bboxes = nn.LayerNorm(config.d_model)
+        self.linear_det_features = nn.Linear(config.d_det, d_model)
+        self.linear_rec_features = nn.Linear(config.d_rec, d_model)
+        self.linear_boxes = nn.Linear(4, d_model)
+
+        self.layer_norm_det = nn.LayerNorm(d_model)
+        self.layer_norm_rec = nn.LayerNorm(d_model)
+        self.layer_norm_bboxes = nn.LayerNorm(d_model)
 
         self.gelu = nn.GELU()
         self.dropout = nn.Dropout(0.1)
-
-        self.cuda_device=config.cuda_device
-        self.device = torch.device(f'{self.cuda_device}' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def pad_tensor(self, tensor: torch.Tensor, max_len: int, value):
         if max_len == 0:
@@ -230,9 +163,7 @@ class SemanticOCREmbedding(nn.Module):
             tensor = torch.cat([tensor, pad_value_tensor], dim=0)
         return tensor
 
-    def forward(self,
-                ocr_info,
-                ocr_embs):
+    def forward(self,ocr_info):
 
         det_features = torch.stack([det["det_features"] for det in ocr_info]).to(self.device)
         rec_features = torch.stack([rec["rec_features"] for rec in ocr_info]).to(self.device)
@@ -242,7 +173,30 @@ class SemanticOCREmbedding(nn.Module):
                         self.layer_norm_rec(self.linear_rec_features(rec_features)))
         ocr_box_emb = self.layer_norm_bboxes(self.linear_boxes(ocr_boxes))
         
-        ocr_features = ocr_feature_emb + ocr_box_emb + ocr_embs
+        ocr_features = ocr_feature_emb + ocr_box_emb
         ocr_features = self.dropout(self.gelu(ocr_features))
 
         return ocr_features
+    
+class OCREmbeddingBuilder(nn.Module):
+    def __init__(self, config) -> None:
+        super().__init__()
+        self.ocr_encoder = Vision_Encode_Ocr_Feature(config)
+        self.semantic_ocr_embedding = SemanticOCREmbedding(config)
+    
+    def forward(self, images: list[str]) -> torch.Tensor:
+        ocr_info = self.ocr_encoder(images)
+        ocr_features = self.semantic_ocr_embedding(ocr_info)
+        return ocr_features
+    
+    @property
+    def dtype(self):
+        return self.semantic_ocr_embedding.linear_det_features.weight.dtype
+    
+    @property
+    def device(self):
+        return self.semantic_ocr_embedding.linear_det_features.weight.device
+    
+    @property
+    def hidden_size(self):
+        return self.semantic_ocr_embedding.linear_det_features.weight.shape[1]

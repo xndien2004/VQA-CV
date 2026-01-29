@@ -24,6 +24,20 @@ def parse_args():
 
     parser.add_argument("--data_path", type=str, required=True)
     parser.add_argument("--image_root", type=str, required=True)
+    parser.add_argument("--caption_path", type=str, default=None)
+
+    # OCR-related arguments (should match train.py)
+    parser.add_argument("--ocr_path", type=str, default=None, help="Path to OCR features")
+    parser.add_argument("--sort_type", type=str, default="top-left bottom-right",
+                        help="OCR sorting type: random, score, top-left bottom-right, None")
+    parser.add_argument("--scene_text_threshold", type=float, default=0.3,
+                        help="OCR score threshold to filter scene text")
+    parser.add_argument("--max_scene_text", type=int, default=32,
+                        help="Maximum number of scene text tokens per image")
+    parser.add_argument("--d_det", type=int, default=256,
+                        help="Dimension of OCR detection features")
+    parser.add_argument("--d_rec", type=int, default=256,
+                        help="Dimension of OCR recognition features")
 
     parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--max_new_tokens", type=int, default=30)
@@ -63,6 +77,16 @@ def infer_and_eval(args):
     config.tokenizer_model_max_length = getattr(tokenizer, "model_max_length", None)
     config.tokenizer_padding_side = tokenizer.padding_side
 
+    # Cấu hình OCR giống với train.py nếu có đường dẫn ocr_path
+    if args.ocr_path is not None:
+        print(f"Configuring model to use OCR features from: {args.ocr_path}")
+        config.ocr_path = args.ocr_path
+        config.sort_type = args.sort_type
+        config.scene_text_threshold = args.scene_text_threshold
+        config.max_scene_text = args.max_scene_text
+        config.d_det = args.d_det
+        config.d_rec = args.d_rec
+
     model = ViVQAForCausalLM.from_pretrained(
         args.llm_name,
         config=config,
@@ -94,6 +118,7 @@ def infer_and_eval(args):
     dataset = VQADataset(
         data_path=args.data_path,
         image_root=args.image_root,
+        caption_path=args.caption_path,
         tokenizer=tokenizer,
         vision_processor_name=args.image_encoder_name,
         max_sample=30

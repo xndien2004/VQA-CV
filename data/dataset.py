@@ -2,6 +2,7 @@ import torch
 import json
 import ast
 import pandas as pd
+import numpy as np
 from pathlib import Path
 from PIL import Image
 from torch.utils.data import Dataset
@@ -51,7 +52,7 @@ class VQADataset(Dataset):
             image=image,
             question=item["question"],
             answer=item["answer"],
-            caption=self._get_caption(item["filename"]),
+            caption=self._get_caption(item["filename"])
         )
 
         return {
@@ -59,6 +60,7 @@ class VQADataset(Dataset):
             "input_ids": sample["input_ids"],
             "labels": sample["labels"],
             "prompt_ids": sample["prompt_ids"],
+            "image_id": int(item["filename"].replace(".jpg", "")),
         }
 
     def _load_image(self, filename):

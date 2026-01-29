@@ -22,23 +22,19 @@ class Evaluator:
             bs = batch["labels"].size(0)
             total_samples += bs
 
+            gen_kwargs = dict(
+                input_ids=batch["prompt_ids"],
+                images=batch["images"],
+                image_ids=batch.get("image_ids", None),
+                max_new_tokens=64,
+                do_sample=False,
+                temperature=0.0,
+            )
+
             if return_predictions:
-                generated_ids = self.model.generate(
-                    input_ids=batch["prompt_ids"],
-                    images=batch["images"],
-                    max_new_tokens=64,
-                    do_sample=False,
-                    temperature=0.0,
-                    num_beams=3,
-                )
-            else:
-                generated_ids = self.model.generate(
-                    input_ids=batch["prompt_ids"],
-                    images=batch["images"],
-                    max_new_tokens=64,
-                    do_sample=False,
-                    temperature=0.0,
-                )
+                gen_kwargs["num_beams"] = 3
+
+            generated_ids = self.model.generate(**gen_kwargs)
 
             generated_ids = generated_ids[:, batch["prompt_ids"].size(1):]
             preds_text = self.tokenizer.batch_decode(

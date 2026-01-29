@@ -43,6 +43,7 @@ class ViVQAForCausalLM(Qwen3ForCausalLM, ViVQAMetaForCausalLM):
             output_hidden_states: Optional[bool] = None,
             images: Optional[torch.FloatTensor] = None,
             return_dict: Optional[bool] = None,
+            image_ids: Optional[torch.LongTensor] = None,
             **kwargs,
             ) -> Tuple:
 
@@ -53,14 +54,16 @@ class ViVQAForCausalLM(Qwen3ForCausalLM, ViVQAMetaForCausalLM):
                 attention_mask,
                 past_key_values,
                 inputs_embeds,
-                labels
+                labels,
+                image_ids
             ) = self.prepare_inputs_labels_for_multimodal(
                 input_ids,
                 position_ids,
                 attention_mask,
                 past_key_values,
                 labels,
-                images
+                images,
+                image_ids
             )
 
         return super().forward(
@@ -80,12 +83,18 @@ class ViVQAForCausalLM(Qwen3ForCausalLM, ViVQAMetaForCausalLM):
     def prepare_inputs_for_generation(self, input_ids, past_key_values=None, inputs_embeds=None, attention_mask=None,
                                       **kwargs):
         images = kwargs.pop("images", None)
+        image_ids = kwargs.pop("image_ids", None)
 
         _inputs = super().prepare_inputs_for_generation(
-            input_ids, past_key_values=past_key_values, inputs_embeds=inputs_embeds, attention_mask=attention_mask,
-            **kwargs
+            input_ids,
+            past_key_values=past_key_values,
+            inputs_embeds=inputs_embeds,
+            attention_mask=attention_mask,
+            **kwargs,
         )
 
         if images is not None:
-            _inputs['images'] = images
+            _inputs["images"] = images
+        if image_ids is not None:
+            _inputs["image_ids"] = image_ids
         return _inputs

@@ -44,39 +44,49 @@ class Trainer:
         else:
             self.checkpoint_dir = os.path.join(os.path.dirname(self.log_path), "checkpoints")
 
-    def train_epoch(self):
+    def train_epoch(self, epoch):
         self.model.train()
         total_loss = 0
 
-        for batch in tqdm(self.train_loader, desc="Training"):
-            batch = {k: v.to(self.device) for k, v in batch.items()}
-            with torch.cuda.amp.autocast(enabled=self.use_amp, dtype=self.autocast_dtype):
-                outputs = self.model(
-                    input_ids=batch["input_ids"],
-                    attention_mask=batch["attention_mask"],
-                    images=batch["images"],
-                    labels=batch["labels"],
-                )
+        with tqdm(
+            desc="Epoch %d - Training" % (epoch + 1),
+            unit="it",
+            total=len(self.train_loader),
+        ) as pbar:
+            for batch in self.train_loader:
+                batch = {k: v.to(self.device) for k, v in batch.items()}
+                with torch.cuda.amp.autocast(enabled=self.use_amp, dtype=self.autocast_dtype):
+                    outputs = self.model(
+                        input_ids=batch["input_ids"],
+                        attention_mask=batch["attention_mask"],
+                        images=batch["images"],
+                        labels=batch["labels"],
+                        image_ids=batch["image_ids"],
+                    )
 
-                loss = outputs.loss
+                    loss = outputs.loss
 
-            if self.scaler.is_enabled():
-                self.scaler.scale(loss).backward()
-                self.scaler.unscale_(self.optimizer)
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
-            else:
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-                self.optimizer.step()
+                if self.scaler.is_enabled():
+                    self.scaler.scale(loss).backward()
+                    self.scaler.unscale_(self.optimizer)
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                else:
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                    self.optimizer.step()
 
-            self.optimizer.zero_grad()
+                self.optimizer.zero_grad()
 
-            if self.scheduler is not None:
-                self.scheduler.step()
+                if self.scheduler is not None:
+                    self.scheduler.step()
 
-            total_loss += loss.item()
+                total_loss += loss.item()
+
+                avg_loss = total_loss / pbar.n if pbar.n > 0 else total_loss
+                pbar.set_postfix(loss=f"{loss.item():.4f}", avg_loss=f"{avg_loss:.4f}")
+                pbar.update(1)
 
         return total_loss / len(self.train_loader)
 
@@ -131,8 +141,7 @@ class Trainer:
     def train(self, epochs, early_stopping=None, save_best_path=None):
         for epoch in range(epochs):
             print(f"\nEpoch {epoch+1}/{epochs}")
-
-            train_loss = self.train_epoch()
+            train_loss = self.train_epoch(epoch)
             print(f"Train Loss: {train_loss:.4f}")
             dev_metrics = self.evaluator.evaluate(self.dev_loader)
 

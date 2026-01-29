@@ -16,11 +16,12 @@ python3 -m VQA-CV.train \
     --dev_path /home/fit02/dien_workspace/vqa/dataset/vitextvqa/ViTextVQA_dev.json \
     --image_root /home/fit02/dien_workspace/vqa/dataset/vitextvqa/images/st_images \
     --caption_path /home/fit02/dien_workspace/vqa/dataset/vitextvqa/vitextvqa_captions.json \
+    --ocr_path /home/fit02/dien_workspace/vqa/dataset/vitextvqa/docr_features_of_vitext.npy \
     --epochs 50 \
     --batch_size 4 \
     --lr 2e-5 \
     --patience 5 \
-    --checkpoint_dir outputs/ \
+    --checkpoint_dir outputs_ocr/ \
     --max_train_samples -1 \
     --max_dev_samples -1 \
-    2>&1 | tee train0.6B.log
+    2>&1 | tee train0.6B_ocr.log

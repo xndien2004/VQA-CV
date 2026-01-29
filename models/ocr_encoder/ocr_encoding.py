@@ -7,20 +7,20 @@ import numpy as np
 import scipy.spatial.distance as distance
 import random
 
+def load_ocr_features(image_id: int, ocr_features_path: str) -> Dict[str, Any]:
+    feature_ocr = np.load(ocr_features_path, allow_pickle=True).item()
+    return feature_ocr.get(image_id, None)
+
 class Vision_Encode_Ocr_Feature(nn.Module):
     def __init__(self, config: Dict):
         super(Vision_Encode_Ocr_Feature,self).__init__()
-        self.cuda_device=config['train']['cuda_device']
-        self.device = torch.device(f'{self.cuda_device}' if torch.cuda.is_available() else 'cpu')
-        self.sort_type = config['ocr_embedding']['sort_type']
-        self.ocr_features_path = config['ocr_embedding']['path_ocr']
-        self.scene_text_threshold = config['ocr_embedding']['threshold']
-        self.max_scene_text = config['ocr_embedding']['max_scene_text']
-        self.d_det=config['ocr_embedding']['d_det']
-        self.d_rec=config['ocr_embedding']['d_rec']
-        self.type_model=config['model']['type_model']
-        self.remove_accents_rate = config['ocr_embedding']['remove_accents_rate']
-        self.use_word_seg=config['ocr_embedding']['use_word_seg']
+        self.sort_type = config.sort_type
+        self.ocr_path = config.ocr_path
+        self.scene_text_threshold = config.scene_text_threshold
+        self.max_scene_text = config.max_scene_text
+        self.global_ocr_features = None
+        if os.path.isfile(self.ocr_path):
+            self.global_ocr_features = np.load(self.ocr_path, allow_pickle=True).item()
          
     def forward(self, images: List[str]):
         ocr_info = [self.load_ocr_features(image_id) for image_id in images]
@@ -47,10 +47,11 @@ class Vision_Encode_Ocr_Feature(nn.Module):
         list.extend(pad_value_list)
         return list
 
-    def get_size_ocr(self, image_id: int):
-        feature_file = os.path.join(self.ocr_features_path, f"{str(image_id)}.npy")
-        if os.path.exists(feature_file):
-            features = np.load(feature_file, allow_pickle=True)[()]
+    def get_size_ocr(self, image_id: int): 
+        if self.global_ocr_features is not None:
+            features = self.global_ocr_features.get(image_id, None)
+            if features is None:
+                return torch.tensor([1,1,1,1])
             w,h=features['weight'],features['height']
             return torch.tensor([w,h,w,h])
         else:
@@ -106,75 +107,64 @@ class Vision_Encode_Ocr_Feature(nn.Module):
         return combined_list, new_index
     
     def load_ocr_features(self, image_id: int) -> Dict[str, Any]:
-        image_id = os.path.basename(image_id).split('.')[0]
-        feature_file = os.path.join(self.ocr_features_path, f"{image_id}.npy")
-        features = np.load(feature_file, allow_pickle=True)[()]
-        if os.path.exists(feature_file):
-            for key, feature in features.items():
-                if isinstance(feature, np.ndarray):
-                    features[key] = torch.tensor(feature)
+        if self.global_ocr_features is not None:
+            features = self.global_ocr_features.get(image_id, None)
+        else:
+            features = load_ocr_features(image_id, self.ocr_path)
 
-            if self.sort_type == 'random':
-                random_indices = list(range(len(features['scores'])))
-                random.shuffle(random_indices)
-                features['det_features'] = features['det_features'][random_indices]
-                features['rec_features'] = features['rec_features'][random_indices]
-                features['boxes'] = features['boxes'][random_indices]
-                features['texts'] = [features['texts'][idx] for idx in random_indices]
+        if features is None:
+            return None
 
-            if self.sort_type=='score':
-                features['scores']=torch.tensor(features['scores'])
-                selected_indices = torch.where(features['scores'] > self.scene_text_threshold)[0]
-                sorted_indices = torch.argsort(features['scores'][selected_indices], descending=True)
-                new_ids = selected_indices[sorted_indices].tolist()
+        features = {k: v for k, v in features.items()}
+
+        for key, feature in features.items():
+            if isinstance(feature, np.ndarray):
+                features[key] = torch.tensor(feature)
+
+        if self.sort_type == 'random':
+            random_indices = list(range(len(features['scores'])))
+            random.shuffle(random_indices)
+            features['det_features'] = features['det_features'][random_indices]
+            features['rec_features'] = features['rec_features'][random_indices]
+            features['boxes'] = features['boxes'][random_indices]
+            features['texts'] = [features['texts'][idx] for idx in random_indices]
+
+        if self.sort_type=='score':
+            features['scores']=torch.tensor(features['scores'])
+            selected_indices = torch.where(features['scores'] > self.scene_text_threshold)[0]
+            sorted_indices = torch.argsort(features['scores'][selected_indices], descending=True)
+            new_ids = selected_indices[sorted_indices].tolist()
+            features['det_features'] = features['det_features'][new_ids]
+            features['rec_features'] = features['rec_features'][new_ids]
+            features['boxes']=features['boxes'][new_ids]
+            features['texts'] = [features['texts'][idx] for idx in new_ids]
+
+        if self.sort_type=='top-left bottom-right':
+            if len(features['texts'])>1:
+                features["boxes"]=features["boxes"]*self.get_size_ocr(image_id)
+                features['texts'], new_ids=self.sorting_bounding_box(features)
                 features['det_features'] = features['det_features'][new_ids]
                 features['rec_features'] = features['rec_features'][new_ids]
                 features['boxes']=features['boxes'][new_ids]
-                features['texts'] = [features['texts'][idx] for idx in new_ids]
+                features["boxes"]=features["boxes"]/self.get_size_ocr(image_id)
 
-            if self.sort_type=='top-left bottom-right':
-                if len(features['texts'])>1:
-                    features["boxes"]=features["boxes"]*self.get_size_ocr(image_id)
-                    features['texts'], new_ids=self.sorting_bounding_box(features)
-                    features['det_features'] = features['det_features'][new_ids]
-                    features['rec_features'] = features['rec_features'][new_ids]
-                    features['boxes']=features['boxes'][new_ids]
-                    features["boxes"]=features["boxes"]/self.get_size_ocr(image_id)
+        if self.sort_type is not None and self.sort_type not in ['random','score', 'top-left bottom-right']:
+            raise ValueError("Invalid sort_type. Must be either 'score' or 'top-left bottom-right' or None ")
 
-            if self.sort_type is not None and self.sort_type not in ['random','score', 'top-left bottom-right']:
-                raise ValueError("Invalid sort_type. Must be either 'score' or 'top-left bottom-right' or None ")
+        if len(features['det_features'])>= self.max_scene_text:
+            features['det_features']=features['det_features'][:self.max_scene_text]
+            features['rec_features']=features['rec_features'][:self.max_scene_text]
+            features['boxes']=features['boxes'][:self.max_scene_text]
+        else:
+            features['det_features'] = self.pad_tensor(features['det_features'], self.max_scene_text, 0.)
+            features['rec_features'] = self.pad_tensor(features['rec_features'], self.max_scene_text, 0.)
+            features['boxes'] = self.pad_tensor(features['boxes'], self.max_scene_text, 0.)
 
-            if len(features['det_features'])>= self.max_scene_text:
-                features['det_features']=features['det_features'][:self.max_scene_text]
-                features['rec_features']=features['rec_features'][:self.max_scene_text]
-                features['boxes']=features['boxes'][:self.max_scene_text]
-            else:
-                features['det_features'] = self.pad_tensor(features['det_features'], self.max_scene_text, 0.)
-                features['rec_features'] = self.pad_tensor(features['rec_features'], self.max_scene_text, 0.)
-                features['boxes'] = self.pad_tensor(features['boxes'], self.max_scene_text, 0.)
-            
-            texts=features['texts']
-
-            if self.max_scene_text==0:
-                texts = ''
-            # elif self.type_model=='sal':
-            #     texts=' <context> '.join(texts)
-            elif self.type_model=='prestu':
-                texts='</s>'.join(texts)
-            elif self.type_model in ['latr','su','viblip','vin_swintext_t5','vin_swintext_bart']:
-                texts =' '.join(texts)
-            else:
-                texts =texts
-                
-            if self.type_model=='latr':
-                features["boxes"]=features["boxes"]*self.get_size_ocr(image_id)
-
-            ocr_info={
-                    "det_features": features["det_features"].float().detach().cpu(),
-                    "rec_features": features["rec_features"].float().detach().cpu(),
-                    "texts": texts,
-                    "boxes": features["boxes"].float().detach().cpu(),
-                    'height': features['height'],
-                    'width': features['weight'],
-                    }
+        ocr_info={
+                "det_features": features["det_features"].float().detach().cpu(),
+                "rec_features": features["rec_features"].float().detach().cpu(),
+                "boxes": features["boxes"].float().detach().cpu(),
+                'height': features['height'],
+                'width': features['weight'],
+                }
         return ocr_info

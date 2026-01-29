@@ -58,12 +58,20 @@ class ViVQAMetaForCausalLM(ABC):
     def get_vision_tower(self):
         return self.get_model().get_vision_tower()
 
-    def encode_images(self, images):
+    def encode_images(self, images, image_ids=None):
         feats = self.get_model().get_vision_tower()(images)
-        return self.get_model().mm_projector(feats)
+        projector = self.get_model().mm_projector
+
+        if image_ids is not None:
+            try:
+                return projector(feats, image_ids)
+            except TypeError:
+                pass
+
+        return projector(feats)
 
     def prepare_inputs_labels_for_multimodal(
-        self, input_ids, position_ids, attention_mask, past_key_values, labels, images
+        self, input_ids, position_ids, attention_mask, past_key_values, labels, images, image_ids=None
     ):
         """
         Prepare multimodal inputs for a causal language model.
@@ -92,16 +100,16 @@ class ViVQAMetaForCausalLM(ABC):
                 )
                 attention_mask = torch.cat((attention_mask, pad), dim=1)
                 position_ids = torch.sum(attention_mask, dim=1).unsqueeze(-1) - 1
-            return input_ids, position_ids, attention_mask, past_key_values, None, labels
+            return input_ids, position_ids, attention_mask, past_key_values, None, labels, image_ids
 
         if isinstance(images, list) or images.ndim == 5:
             concat_images = torch.cat(list(images), dim=0)
-            image_features = self.encode_images(concat_images)
+            image_features = self.encode_images(concat_images, image_ids=image_ids)
             split_sizes = [image.shape[0] for image in images]
             image_features = torch.split(image_features, split_sizes, dim=0)
             image_features = [x.flatten(0, 1).to(self.device) for x in image_features]
         else:
-            image_features = self.encode_images(images).to(self.device)
+            image_features = self.encode_images(images, image_ids=image_ids).to(self.device)
 
         _labels = labels
         _position_ids = position_ids
@@ -224,4 +232,4 @@ class ViVQAMetaForCausalLM(ABC):
         if _position_ids is None:
             position_ids = None
 
-        return None, position_ids, attention_mask, past_key_values, new_input_embeds, new_labels
+        return None, position_ids, attention_mask, past_key_values, new_input_embeds, new_labels, image_ids

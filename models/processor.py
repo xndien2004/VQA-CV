@@ -105,7 +105,7 @@ class ViVQAProcessor:
             "images": pixel_values,
             "input_ids": input_ids,
             "labels": labels,
-            "prompt_ids": prompt_ids
+            "prompt_ids": prompt_ids,
         }
 
 
