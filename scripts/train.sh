@@ -12,12 +12,12 @@ python3 -m VQA-CV.train \
 	--llm_name Qwen/Qwen3-0.6B \
     --image_encoder_name google/siglip2-so400m-patch16-naflex \
     --vision_projector_type mlp2x_gelu \
-    --train_path /home/fit02/dien_workspace/vqa/dataset/ViTextVQA_train.json \
-    --dev_path /home/fit02/dien_workspace/vqa/dataset/ViTextVQA_dev.json \
-    --image_root /home/fit02/dien_workspace/vqa/dataset/images/st_images \
-    --caption_path /home/fit02/dien_workspace/vqa/dataset/vitextvqa_captions.json \
+    --train_path /home/fit02/dien_workspace/vqa/dataset/vitextvqa/ViTextVQA_train.json \
+    --dev_path /home/fit02/dien_workspace/vqa/dataset/vitextvqa/ViTextVQA_dev.json \
+    --image_root /home/fit02/dien_workspace/vqa/dataset/vitextvqa/images/st_images \
+    --caption_path /home/fit02/dien_workspace/vqa/dataset/vitextvqa/vitextvqa_captions.json \
     --epochs 50 \
-    --batch_size 8 \
+    --batch_size 4 \
     --lr 2e-5 \
     --patience 5 \
     --checkpoint_dir outputs/ \

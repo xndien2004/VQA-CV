@@ -28,6 +28,16 @@ class Trainer:
         self.device = device
         self.log_path = log_path
         self.logs = []
+        self.use_amp = self.device.type == "cuda"
+        if self.use_amp and torch.cuda.is_available() and torch.cuda.is_bf16_supported():
+            print("Using bfloat16 precision for training.")
+            self.autocast_dtype = torch.bfloat16
+        else:
+            print("Using float32 precision for training.")
+            self.autocast_dtype = torch.float32
+
+        use_scaler = self.use_amp and self.autocast_dtype == torch.float32
+        self.scaler = torch.cuda.amp.GradScaler(enabled=use_scaler)
         # Directory to store separate checkpoints for model / optimizer / scheduler
         if checkpoint_dir is not None:
             self.checkpoint_dir = checkpoint_dir
@@ -40,19 +50,27 @@ class Trainer:
 
         for batch in tqdm(self.train_loader, desc="Training"):
             batch = {k: v.to(self.device) for k, v in batch.items()}
-            outputs = self.model(
-                input_ids=batch["input_ids"],
-                attention_mask=batch["attention_mask"],
-                images=batch["images"],
-                labels=batch["labels"],
-            )
+            with torch.cuda.amp.autocast(enabled=self.use_amp, dtype=self.autocast_dtype):
+                outputs = self.model(
+                    input_ids=batch["input_ids"],
+                    attention_mask=batch["attention_mask"],
+                    images=batch["images"],
+                    labels=batch["labels"],
+                )
 
-            loss = outputs.loss
-            loss.backward()
+                loss = outputs.loss
 
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+            if self.scaler.is_enabled():
+                self.scaler.scale(loss).backward()
+                self.scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+            else:
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                self.optimizer.step()
 
-            self.optimizer.step()
             self.optimizer.zero_grad()
 
             if self.scheduler is not None:
