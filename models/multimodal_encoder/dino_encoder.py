@@ -1,10 +1,24 @@
 import torch
 import torch.nn as nn
 
-from transformers import Dinov2Model, Dinov2Config, AutoImageProcessor
+from transformers import AutoModel, AutoConfig, AutoImageProcessor
 
 
 class DINOVisionTower(nn.Module):
+    '''
+    Docstring for DINOVisionTower
+    Vision encoder using DINO model.
+    Args:
+        vision_tower (str): Name of the pretrained DINO model.
+        args: Additional arguments.
+        delay_load (bool): Whether to delay loading the model.
+
+    model supports:
+        - facebook/dinov3-convnext-base-pretrain-lvd1689m 
+        - facebook/dinov3-convnext-large-pretrain-lvd1689m 
+        - facebook/dinov3-convnext-small-pretrain-lvd1689m 
+        - facebook/dinov3-convnext-tiny-pretrain-lvd1689m
+    '''
     def __init__(self, vision_tower, args, delay_load=False):
         super().__init__()
 
@@ -16,11 +30,11 @@ class DINOVisionTower(nn.Module):
         if not delay_load:
             self.load_model()
         else:
-            self.cfg_only = Dinov2Config.from_pretrained(self.vision_tower_name)
+            self.cfg_only = AutoConfig.from_pretrained(self.vision_tower_name)
 
     def load_model(self):
         self.image_processor = AutoImageProcessor.from_pretrained(self.vision_tower_name)
-        self.vision_tower = Dinov2Model.from_pretrained(self.vision_tower_name)
+        self.vision_tower = AutoModel.from_pretrained(self.vision_tower_name)
         self.vision_tower.requires_grad_(False)
 
         self.is_loaded = True
@@ -69,9 +83,20 @@ class DINOVisionTower(nn.Module):
         else:
             return self.cfg_only
 
+    def _infer_hidden_size(self):
+        cfg = self.config
+        if hasattr(cfg, "hidden_size"):
+            return cfg.hidden_size
+        if hasattr(cfg, "hidden_sizes"):
+            hidden_sizes = cfg.hidden_sizes
+            if isinstance(hidden_sizes, (list, tuple)):
+                return hidden_sizes[-1]
+            return int(hidden_sizes)
+        raise AttributeError("DINO config has no hidden_size/hidden_sizes to infer vision hidden dimension.")
+
     @property
     def hidden_size(self):
-        return self.config.hidden_size
+        return self._infer_hidden_size()
 
     @property
     def num_patches(self):

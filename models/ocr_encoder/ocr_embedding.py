@@ -12,7 +12,9 @@ class ScaledDotProductAttention(nn.Module):
     def __init__(self, config):
         super(ScaledDotProductAttention, self).__init__()
 
-        d_model = config.d_model
+        d_model = getattr(config, "d_model", getattr(config, "hidden_size", None))
+        if d_model is None:
+            raise ValueError("Config must define either 'd_model' or 'hidden_size' for OCR attention.")
         h = config.num_attention_heads
         d_k = d_model // h
         d_v = d_model // h
@@ -59,13 +61,12 @@ class SpatialCirclePosition(ScaledDotProductAttention):
     def __init__(self, config) -> None:
         super().__init__(config)
         self.dist_embedding = nn.Embedding(
-            num_embeddings=config.num_distances,
+            num_embeddings=getattr(config, "num_distances", 32),
             embedding_dim=config.num_attention_heads
         )
-        self.layer_norm = nn.LayerNorm(config.d_model)
+        self.layer_norm = nn.LayerNorm(self.d_model)
     
     def calculate_distances(self, patch_x, patch_y):
-        # Tính toán khoảng cách
         dx = patch_x.unsqueeze(1) - patch_x.unsqueeze(2)
         dy = patch_y.unsqueeze(1) - patch_y.unsqueeze(2)
 
@@ -118,8 +119,9 @@ class SpatialCirclePosition(ScaledDotProductAttention):
             size=torch.tensor([item['width'],item['height'],item['width'],item['height']])
             image_sizes.append(size)
             boxes.append(item["boxes"]*size)
-        image_sizes = torch.stack(image_sizes).to(self.device)
-        boxes = torch.stack(boxes).to(self.device)
+        # Đưa về cùng device với features để tránh lỗi device mismatch
+        image_sizes = torch.stack(image_sizes).to(features.device)
+        boxes = torch.stack(boxes).to(features.device)
         bs, nq, _ = boxes.shape
         patch_x, patch_y = self.patch(boxes, image_sizes)
         dist=self.calculate_distances(patch_x,patch_y)*2
@@ -182,11 +184,13 @@ class OCREmbeddingBuilder(nn.Module):
     def __init__(self, config) -> None:
         super().__init__()
         self.ocr_encoder = Vision_Encode_Ocr_Feature(config)
+        self.spatial_embedding = SpatialCirclePosition(config)
         self.semantic_ocr_embedding = SemanticOCREmbedding(config)
     
     def forward(self, images: list[str]) -> torch.Tensor:
         ocr_info = self.ocr_encoder(images)
         ocr_features = self.semantic_ocr_embedding(ocr_info)
+        ocr_features, _ = self.spatial_embedding(ocr_features, ocr_info)
         return ocr_features
     
     @property

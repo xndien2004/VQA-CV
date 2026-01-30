@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from typing import Optional, Union, List
 
 from ..ocr_encoder.builder import build_ocr_embedding
 
@@ -50,39 +51,62 @@ class MLP(nn.Module):
 
 
 class OCRVisionProjector(nn.Module):
-    """Projector that fuses vision features with OCR embeddings when available.
+    """
+    Vision + OCR projector for text-based VQA.
 
-    - Vision features (from vision tower) are first projected to language hidden size.
-    - OCR features are built once from global OCR features via build_ocr_embedding.
-    - Both are mean-pooled to a single token per image and fused with a ModalityGate.
+    Output token order:
+        [prefix tokens] + [vision tokens] + [ocr tokens (optional)]
+
+    Shape:
+        (B, N_prefix + N_vision (+ N_ocr), hidden_size)
     """
 
-    def __init__(self, config=None):
+    def __init__(self, config):
         super().__init__()
+
+        self.hidden_size = config.hidden_size
+        self.num_prefix_tokens = getattr(config, "num_prefix_tokens", 8)
+
         self.vision_mlp = MLP(config)
         self.ocr_embedding = build_ocr_embedding(config)
-        self.modality_gate = ModalityGate(config)
 
-    def forward(self, vision_feats: torch.Tensor, image_ids=None) -> torch.Tensor:
-        vision_proj = self.vision_mlp(vision_feats)
-        if image_ids is None:
-            return vision_proj
-        if isinstance(image_ids, torch.Tensor):
-            image_id_list = image_ids.detach().cpu().tolist()
-        else:
-            image_id_list = image_ids
-        ocr_features = self.ocr_embedding(image_id_list)
+        # (N_prefix, H)
+        self.prefix_tokens = nn.Parameter(
+            torch.empty(self.num_prefix_tokens, self.hidden_size)
+        )
+        nn.init.normal_(self.prefix_tokens, mean=0.0, std=0.02)
 
-        vision_token = vision_proj.mean(dim=1, keepdim=True)
-        ocr_token = ocr_features.mean(dim=1, keepdim=True)
+    def forward(
+        self,
+        vision_feats: torch.Tensor,          # (B, N_vision, mm_hidden)
+        image_ids: Optional[Union[torch.Tensor, List[int]]] = None,
+    ) -> torch.Tensor:
 
-        fused = self.modality_gate(vision_token, ocr_token)
-        return fused
+        B = vision_feats.size(0)
+
+        prefix_tokens = self.prefix_tokens.unsqueeze(0).expand(B, -1, -1)
+
+        vision_tokens = self.vision_mlp(vision_feats)
+
+        image_tokens = torch.cat((prefix_tokens, vision_tokens), dim=1)
+
+        if image_ids is not None:
+            if torch.is_tensor(image_ids):
+                image_ids = image_ids.tolist()
+
+            # (B, N_ocr, H)
+            ocr_tokens = self.ocr_embedding(image_ids)
+
+            image_tokens = torch.cat((image_tokens, ocr_tokens), dim=1)
+
+        return image_tokens
+
 
 def build_vision_projector(config, delay_load=False, **kwargs):
     projector_type = getattr(config, 'mm_projector_type', 'mlp2x_gelu')
 
     if getattr(config, 'ocr_path', None) is not None:
+        print("Using OCRVisionProjector as vision projector.")
         return OCRVisionProjector(config)
 
     if projector_type == 'linear':

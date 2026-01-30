@@ -21,7 +21,7 @@ python3 -m VQA-CV.train \
     --batch_size 4 \
     --lr 2e-5 \
     --patience 5 \
-    --checkpoint_dir outputs_ocr/ \
+    --checkpoint_dir outputs_ocrv2/ \
     --max_train_samples -1 \
     --max_dev_samples -1 \
     2>&1 | tee train0.6B_ocr.log
