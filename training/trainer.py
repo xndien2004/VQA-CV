@@ -138,7 +138,7 @@ class Trainer:
             f"  scheduler -> {scheduler_path if self.scheduler is not None else 'N/A'}"
         )
 
-    def train(self, epochs, early_stopping=None, save_best_path=None):
+    def train(self, epochs, early_stopping=None):
         for epoch in range(epochs):
             print(f"\nEpoch {epoch+1}/{epochs}")
             train_loss = self.train_epoch(epoch)
@@ -169,9 +169,9 @@ class Trainer:
             if early_stopping is not None:
                 stop, improved = early_stopping.step(dev_metrics["EM"])
 
-                if improved and save_best_path is not None:
+                if improved:
                     best_epoch = epoch + 1
-                    self.save_model(save_best_path)
+                    self.save_model(self.checkpoint_dir)
                     print(
                         f"New best EM: {early_stopping.best_metric:.4f} "
                         f"(epoch {best_epoch})"
@@ -190,12 +190,13 @@ class Trainer:
 
     def save_model(self, save_path):
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        torch.save(self.model.state_dict(), save_path)
+
+        torch.save(self.model.state_dict(), os.path.join(save_path, "best_model.pth"))
         print(f"Model saved to {save_path}")
 
-        model_dir = os.path.dirname(save_path)
-        self.model.config.save_pretrained(model_dir)
-        print(f"Model configuration saved to {model_dir}")
+        if hasattr(self.model, "config") and hasattr(self.model.config, "save_pretrained"):
+            self.model.config.save_pretrained(save_path)
+            print(f"Model configuration saved to {save_path}")
         
     def load_model(self, load_path):
         self.model.load_state_dict(torch.load(load_path))

@@ -56,7 +56,6 @@ def parse_args():
     )
     parser.add_argument("--num_workers", type=int, default=2)
     parser.add_argument("--patience", type=int, default=5)
-    parser.add_argument("--save_best_path", type=str, default="outputs/best_model.pth")
     parser.add_argument("--max_train_samples", type=int, default=-1)
     parser.add_argument("--max_dev_samples", type=int, default=-1)
 
@@ -259,7 +258,7 @@ def main():
         checkpoint_dir=args.checkpoint_dir,
     )
 
-    trainer.train(args.epochs, early_stopping=EarlyStopping(patience=args.patience), save_best_path=args.save_best_path)
+    trainer.train(args.epochs, early_stopping=EarlyStopping(patience=args.patience))
 
 
 if __name__ == "__main__":
