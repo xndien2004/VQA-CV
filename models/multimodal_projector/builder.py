@@ -65,15 +65,22 @@ class OCRVisionProjector(nn.Module):
         super().__init__()
 
         self.hidden_size = config.hidden_size
+        self.num_prefix_tokens = getattr(config, 'num_prefix_tokens', 24)
 
         self.vision_mlp = MLP(config)
         self.ocr_embedding = build_ocr_embedding(config)
+        self.gate = ModalityGate(config)
+        self.prefix_tokens = nn.Parameter(
+            torch.randn(self.num_prefix_tokens, self.hidden_size)
+        )
 
     def forward(
         self,
-        vision_feats: torch.Tensor,          # (B, N_vision, mm_hidden)
+        vision_feats: torch.Tensor,
         image_ids: Optional[Union[torch.Tensor, List[int]]] = None,
     ) -> torch.Tensor:
+
+        B = vision_feats.size(0)
 
         # (B, N_vision, H)
         vision_tokens = self.vision_mlp(vision_feats)
@@ -87,10 +94,12 @@ class OCRVisionProjector(nn.Module):
             # (B, N_ocr, H)
             ocr_tokens = self.ocr_embedding(image_ids)
 
-            image_tokens = torch.cat((image_tokens, ocr_tokens), dim=1)
+            image_tokens = self.gate(vision_tokens, ocr_tokens)
+
+        prefix = self.prefix_tokens.unsqueeze(0).expand(B, -1, -1)
+        image_tokens = torch.cat([prefix, image_tokens], dim=1)
 
         return image_tokens
-
 
 def build_vision_projector(config, delay_load=False, **kwargs):
     projector_type = getattr(config, 'mm_projector_type', 'mlp2x_gelu')
