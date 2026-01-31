@@ -55,26 +55,19 @@ class OCRVisionProjector(nn.Module):
     Vision + OCR projector for text-based VQA.
 
     Output token order:
-        [prefix tokens] + [vision tokens] + [ocr tokens (optional)]
+        [vision tokens] + [ocr tokens (optional)]
 
     Shape:
-        (B, N_prefix + N_vision (+ N_ocr), hidden_size)
+        (B, N_vision (+ N_ocr), hidden_size)
     """
 
     def __init__(self, config):
         super().__init__()
 
         self.hidden_size = config.hidden_size
-        self.num_prefix_tokens = getattr(config, "num_prefix_tokens", 8)
 
         self.vision_mlp = MLP(config)
         self.ocr_embedding = build_ocr_embedding(config)
-
-        # (N_prefix, H)
-        self.prefix_tokens = nn.Parameter(
-            torch.empty(self.num_prefix_tokens, self.hidden_size)
-        )
-        nn.init.normal_(self.prefix_tokens, mean=0.0, std=0.02)
 
     def forward(
         self,
@@ -82,13 +75,10 @@ class OCRVisionProjector(nn.Module):
         image_ids: Optional[Union[torch.Tensor, List[int]]] = None,
     ) -> torch.Tensor:
 
-        B = vision_feats.size(0)
-
-        prefix_tokens = self.prefix_tokens.unsqueeze(0).expand(B, -1, -1)
-
+        # (B, N_vision, H)
         vision_tokens = self.vision_mlp(vision_feats)
 
-        image_tokens = torch.cat((prefix_tokens, vision_tokens), dim=1)
+        image_tokens = vision_tokens
 
         if image_ids is not None:
             if torch.is_tensor(image_ids):

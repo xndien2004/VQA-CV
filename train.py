@@ -129,6 +129,7 @@ def main():
         config.scene_text_threshold = args.scene_text_threshold
         config.d_det = args.d_det
         config.d_rec = args.d_rec
+        config.max_scene_text = 32
 
     # Initialize ViVQA model (Qwen3 + SigLIP vision tower)
     model = ViVQAForCausalLM.from_pretrained(
