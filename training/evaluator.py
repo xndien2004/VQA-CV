@@ -7,6 +7,11 @@ class Evaluator:
         self.model = model
         self.tokenizer = tokenizer
         self.device = device
+        self.use_amp = self.device.type == "cuda"
+        if self.use_amp and torch.cuda.is_available() and torch.cuda.is_bf16_supported():
+            self.autocast_dtype = torch.bfloat16
+        else:
+            self.autocast_dtype = torch.float32
 
     @torch.no_grad()
     def evaluate(self, dataloader, return_predictions=False):
@@ -34,7 +39,8 @@ class Evaluator:
             if return_predictions:
                 gen_kwargs["num_beams"] = 3
 
-            generated_ids = self.model.generate(**gen_kwargs)
+            with torch.cuda.amp.autocast(enabled=self.use_amp, dtype=self.autocast_dtype):
+                generated_ids = self.model.generate(**gen_kwargs)
 
             generated_ids = generated_ids[:, batch["prompt_ids"].size(1):]
             preds_text = self.tokenizer.batch_decode(
