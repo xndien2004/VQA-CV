@@ -26,7 +26,6 @@ def parse_args():
     parser.add_argument("--image_root", type=str, required=True)
     parser.add_argument("--caption_path", type=str, default=None)
 
-    # OCR-related arguments (should match train.py)
     parser.add_argument("--ocr_path", type=str, default=None, help="Path to OCR features")
     parser.add_argument("--sort_type", type=str, default="top-left bottom-right",
                         help="OCR sorting type: random, score, top-left bottom-right, None")
@@ -54,7 +53,6 @@ def infer_and_eval(args):
     if tokenizer.pad_token is None or tokenizer.pad_token == tokenizer.eos_token:
         tokenizer.add_special_tokens({"pad_token": "<pad>"})
 
-    # Add image span markers consistent with training and ViVQAProcessor
     special_tokens = {"additional_special_tokens": ["<image>", "<im_start>", "<im_end>"]}
     tokenizer.add_special_tokens(special_tokens)
 
@@ -62,7 +60,6 @@ def infer_and_eval(args):
     image_start_token_id = tokenizer.convert_tokens_to_ids("<im_start>")
     image_end_token_id = tokenizer.convert_tokens_to_ids("<im_end>")
 
-    # Build ViVQA config from base Qwen3 config
     base_config = AutoConfig.from_pretrained(args.llm_name, trust_remote_code=True)
     config_dict = base_config.to_dict()
     config = ViVQAConfig(**config_dict)
@@ -75,7 +72,6 @@ def infer_and_eval(args):
     config.tokenizer_model_max_length = getattr(tokenizer, "model_max_length", None)
     config.tokenizer_padding_side = tokenizer.padding_side
 
-    # Cấu hình OCR giống với train.py nếu có đường dẫn ocr_path
     if args.ocr_path is not None:
         print(f"Configuring model to use OCR features from: {args.ocr_path}")
         config.ocr_path = args.ocr_path
