@@ -140,9 +140,6 @@ class SpatialCirclePosition(ScaledDotProductAttention):
 class SemanticOCREmbedding(nn.Module):
     def __init__(self, config) -> None:
         super().__init__()
-
-        self.max_scene_text = config.max_scene_text
-
         d_model = config.hidden_size
 
         self.linear_det_features = nn.Linear(config.d_det, d_model)

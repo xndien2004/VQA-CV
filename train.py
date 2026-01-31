@@ -61,7 +61,6 @@ def parse_args():
 
     parser.add_argument("--sort_type", type=str, default="top-left bottom-right", help="OCR sorting type: random, score, top-left bottom-right, None")
     parser.add_argument("--scene_text_threshold", type=float, default=0.3, help="OCR score threshold to filter scene text")
-    parser.add_argument("--max_scene_text", type=int, default=32, help="Maximum number of scene text tokens per image")
     parser.add_argument("--d_det", type=int, default=256, help="Dimension of OCR detection features")
     parser.add_argument("--d_rec", type=int, default=256, help="Dimension of OCR recognition features")
 
@@ -128,7 +127,6 @@ def main():
         config.ocr_path = args.ocr_path
         config.sort_type = args.sort_type
         config.scene_text_threshold = args.scene_text_threshold
-        config.max_scene_text = args.max_scene_text
         config.d_det = args.d_det
         config.d_rec = args.d_rec
 
