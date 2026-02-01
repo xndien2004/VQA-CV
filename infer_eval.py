@@ -2,6 +2,7 @@ import argparse
 import json
 import torch
 import os
+import random
 from PIL import Image
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer, AutoConfig
@@ -115,7 +116,7 @@ def infer_and_eval(args):
         caption_path=args.caption_path,
         tokenizer=tokenizer,
         vision_processor_name=args.image_encoder_name,
-        max_sample=30
+        # max_sample=20
     )
 
     dataloader = DataLoader(
@@ -168,8 +169,11 @@ def infer_and_eval(args):
     for item in data1:
         item["image"] = Image.open(item["image_path"]).convert("RGB")
     try:
-        plot_image_predictions(data0[:6], f"{args.output_path}/incorrect_predictions.png")
-        plot_image_predictions(data1[:6], f"{args.output_path}/correct_predictions.png")
+        data0 = random.sample(data0, min(6, len(data0)))
+        data1 = random.sample(data1, min(6, len(data1)))
+
+        plot_image_predictions(data0, f"{args.output_path}/incorrect_predictions.png")
+        plot_image_predictions(data1, f"{args.output_path}/correct_predictions.png")
     except Exception as e:
         print(f"Error in plotting image predictions: {e}")
 
