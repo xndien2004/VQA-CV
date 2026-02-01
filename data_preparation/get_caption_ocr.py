@@ -102,7 +102,7 @@ if __name__ == "__main__":
     ).eval().cuda()
 
     tokenizer = AutoTokenizer.from_pretrained("5CD-AI/Vintern-1B-v3_5", trust_remote_code=True, use_fast=False)
-    image_folder = "/home/fit02/dien_workspace/vqa/dataset/recieptvqa/images"
+    image_folder = "/home/fit02/dien_workspace/vqa/dataset/viocrvqa/images"
     image_files = [f for f in os.listdir(image_folder) if f.endswith('.jpg')]
     image_files.sort()
     results = {}
@@ -114,5 +114,5 @@ if __name__ == "__main__":
         if (idx + 1) % 100 == 0:
             print(f"Processed {idx + 1}/{len(image_files)} images.")
         
-    with open("/home/fit02/dien_workspace/vqa/dataset/recieptvqa/recieptvqa_captions.json", "w", encoding="utf-8") as f:
+    with open("/home/fit02/dien_workspace/vqa/dataset/viocrvqa/viocrvqa_captions.json", "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=4)
