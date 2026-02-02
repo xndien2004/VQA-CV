@@ -47,7 +47,15 @@ class ViVQAMetaModel:
             def get_w(weights, keyword):
                 return {k.split(keyword + ".")[1]: v for k, v in weights.items() if keyword in k}
 
-            self.mm_projector.load_state_dict(get_w(mm_projector_weights, "mm_projector"))
+            mm_state_dict = get_w(mm_projector_weights, "mm_projector")
+            incompatible_keys = self.mm_projector.load_state_dict(mm_state_dict, strict=False)
+            # Optional: log missing/unexpected keys for debugging when adding new layers
+            missing_keys = getattr(incompatible_keys, "missing_keys", [])
+            unexpected_keys = getattr(incompatible_keys, "unexpected_keys", [])
+            if len(missing_keys) > 0:
+                print(f"[ViVQAMetaModel] Missing keys in mm_projector checkpoint: {missing_keys}")
+            if len(unexpected_keys) > 0:
+                print(f"[ViVQAMetaModel] Unexpected keys in mm_projector checkpoint: {unexpected_keys}")
 
 
 class ViVQAMetaForCausalLM(ABC):
@@ -58,9 +66,20 @@ class ViVQAMetaForCausalLM(ABC):
     def get_vision_tower(self):
         return self.get_model().get_vision_tower()
 
-    def encode_images(self, images, image_ids=None):
+    def encode_images(self, images, image_ids=None, question_embeds=None):
         feats = self.get_model().get_vision_tower()(images)
         projector = self.get_model().mm_projector
+
+        # Try using question-guided projector first (if supported)
+        if question_embeds is not None:
+            try:
+                if image_ids is not None:
+                    return projector(feats, image_ids=image_ids, question_embeds=question_embeds)
+                else:
+                    return projector(feats, question_embeds=question_embeds)
+            except TypeError:
+                # Projector may not accept question_embeds; fall back to original behavior
+                pass
 
         if image_ids is not None:
             try:
@@ -109,7 +128,9 @@ class ViVQAMetaForCausalLM(ABC):
             image_features = torch.split(image_features, split_sizes, dim=0)
             image_features = [x.flatten(0, 1).to(self.device) for x in image_features]
         else:
-            image_features = self.encode_images(images, image_ids=image_ids).to(self.device)
+            # Build question embeddings from token ids to guide OCR selection in the projector
+            question_embeds = self.get_model().embed_tokens(input_ids)
+            image_features = self.encode_images(images, image_ids=image_ids, question_embeds=question_embeds).to(self.device)
 
         _labels = labels
         _position_ids = position_ids
