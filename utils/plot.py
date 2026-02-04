@@ -64,40 +64,40 @@ def plot_image_predictions(data, save_path, max_cols=3):
     plt.show()
 
 if __name__ == "__main__":
-    # plot_curves("/home/fit02/dien_workspace/vqa/outputs/logs.json", "/home/fit02/dien_workspace/vqa/outputs/logs.png")
+    plot_curves("/home/fit02/dien_workspace/vqa/outputs_ocr/logs.json", "/home/fit02/dien_workspace/vqa/outputs_ocr/logs.png")
 
-    predictions_path = "/home/fit02/dien_workspace/vqa/outputs/predictions.json"
+    # predictions_path = "/home/fit02/dien_workspace/vqa/outputs/predictions.json"
 
-    try:
-        with open(predictions_path, "r") as f:
-            content = f.read().strip()
+    # try:
+    #     with open(predictions_path, "r") as f:
+    #         content = f.read().strip()
 
-        if not content:
-            print(f"predictions.json is empty at: {predictions_path}")
-            data_new = []
-        else:
-            data_new = json.loads(content)
-    except FileNotFoundError:
-        print(f"predictions.json not found at: {predictions_path}")
-        data_new = []
-    except json.JSONDecodeError as e:
-        print(f"Could not decode JSON from {predictions_path}: {e}")
-        data_new = []
+    #     if not content:
+    #         print(f"predictions.json is empty at: {predictions_path}")
+    #         data_new = []
+    #     else:
+    #         data_new = json.loads(content)
+    # except FileNotFoundError:
+    #     print(f"predictions.json not found at: {predictions_path}")
+    #     data_new = []
+    # except json.JSONDecodeError as e:
+    #     print(f"Could not decode JSON from {predictions_path}: {e}")
+    #     data_new = []
 
-    if not data_new:
-        print("No prediction data to plot. Make sure predictions.json is generated and non-empty.")
-    else:
-        data0 = [data for data in data_new if data.get("EM") == 0]
-        data1 = [data for data in data_new if data.get("EM") == 1]
+    # if not data_new:
+    #     print("No prediction data to plot. Make sure predictions.json is generated and non-empty.")
+    # else:
+    #     data0 = [data for data in data_new if data.get("EM") == 0]
+    #     data1 = [data for data in data_new if data.get("EM") == 1]
 
-        for item in data0:
-            item["image"] = Image.open(item["image_path"]).convert("RGB")
+    #     for item in data0:
+    #         item["image"] = Image.open(item["image_path"]).convert("RGB")
 
-        for item in data1:
-            item["image"] = Image.open(item["image_path"]).convert("RGB")
+    #     for item in data1:
+    #         item["image"] = Image.open(item["image_path"]).convert("RGB")
 
-        try:
-            plot_image_predictions(data0[:6], "/home/fit02/dien_workspace/vqa/outputs/incorrect_predictions.png")
-            plot_image_predictions(data1[:6], "/home/fit02/dien_workspace/vqa/outputs/correct_predictions.png")
-        except Exception as e:
-            print(f"Error in plotting image predictions: {e}")
+    #     try:
+    #         plot_image_predictions(data0[:6], "/home/fit02/dien_workspace/vqa/outputs/incorrect_predictions.png")
+    #         plot_image_predictions(data1[:6], "/home/fit02/dien_workspace/vqa/outputs/correct_predictions.png")
+    #     except Exception as e:
+    #         print(f"Error in plotting image predictions: {e}")

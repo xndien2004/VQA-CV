@@ -1,10 +1,10 @@
 import re
 from collections import Counter
 
-from data.preprocessing import normalize_text, preprocess_sentence
+from data.preprocessing import normalize_text, preprocess_sentence, canonicalize
 
 def exact_match(pred, gt):
-    return int(preprocess_sentence(normalize_text(pred)) == preprocess_sentence(normalize_text(gt)))
+    return int(canonicalize(pred) == canonicalize(gt))
 
 def f1_score(pred, gt, is_return_precision_recall=False):
     pred_tokens = preprocess_sentence(normalize_text(pred)).split()

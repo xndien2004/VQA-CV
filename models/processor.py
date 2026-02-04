@@ -91,7 +91,8 @@ class ViVQAProcessor:
         pixel_values = image_inputs["pixel_values"].squeeze(0)
         prompt = self.build_prompt(question, caption=caption)
 
-        prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=False, max_length=2048, truncation=True)
+        prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=False, max_length=3072, truncation=True)
+
         answer_ids = self.tokenizer.encode(answer + " <|im_end|>", add_special_tokens=False)
 
         prompt_ids = torch.tensor(prompt_ids, dtype=torch.long)

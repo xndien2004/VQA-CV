@@ -84,10 +84,14 @@ def load_image(image_file, input_size=448, max_num=12):
     pixel_values = torch.stack(pixel_values)
     return pixel_values
 
-def get_caption(image_path, max_new_tokens, model, tokenizer):
+def get_caption(image_path, max_new_tokens, model, tokenizer, image_folder):
     generation_config = dict(max_new_tokens=max_new_tokens, do_sample=False, num_beams=3, repetition_penalty=2.5)
     pixel_values = load_image(image_path, max_num=6).to(torch.bfloat16).cuda()
-    question = '<image>\nHãy miêu tả chi tiết nội dung bức ảnh; nếu trong ảnh có văn bản, hãy chép lại đầy đủ và chính xác tất cả ký tự xuất hiện (OCR), giữ nguyên thứ tự, không sửa lỗi. Nếu không có văn bản thì chỉ cần mô tả hình ảnh.'
+    if "reciept" in image_path.lower():
+        question = '<image>\nTrích xuất thông tin chính trong ảnh và trả về dạng markdown.'
+    else:
+        question = '<image>\nHãy miêu tả chi tiết nội dung bức ảnh; nếu trong ảnh có văn bản, hãy chép lại đầy đủ và chính xác tất cả ký tự xuất hiện (OCR), giữ nguyên thứ tự, không sửa lỗi. Nếu không có văn bản thì chỉ cần mô tả hình ảnh.'
+    
     response, history = model.chat(tokenizer, pixel_values, question, generation_config, history=None, return_history=True)
     return response
 
@@ -102,17 +106,15 @@ if __name__ == "__main__":
     ).eval().cuda()
 
     tokenizer = AutoTokenizer.from_pretrained("5CD-AI/Vintern-1B-v3_5", trust_remote_code=True, use_fast=False)
-    image_folder = "/home/fit02/dien_workspace/vqa/dataset/viocrvqa/images"
+    image_folder = "/home/fit02/dien_workspace/vqa/dataset/recieptvqa/images"
     image_files = [f for f in os.listdir(image_folder) if f.endswith('.jpg')]
     image_files.sort()
     results = {}
     for idx, image_file in enumerate(image_files):
         image_path = os.path.join(image_folder, image_file)
-        caption = get_caption(image_path, max_new_tokens=1024, model=model, tokenizer=tokenizer)
-        print(f"Image: {image_file}, Caption: {caption}")
+        caption = get_caption(image_path, max_new_tokens=2048, model=model, tokenizer=tokenizer, image_folder=image_folder)
+        print(f"Image: {image_file}, Len caption: {len(image_files)}, Caption: {caption}")
         results[image_file] = caption
-        if (idx + 1) % 100 == 0:
-            print(f"Processed {idx + 1}/{len(image_files)} images.")
         
-    with open("/home/fit02/dien_workspace/vqa/dataset/viocrvqa/viocrvqa_captions.json", "w", encoding="utf-8") as f:
+    with open("/home/fit02/dien_workspace/vqa/dataset/recieptvqa/recieptvqa_captions.json", "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=4)

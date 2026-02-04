@@ -60,7 +60,7 @@ class VQADataset(Dataset):
             "input_ids": sample["input_ids"],
             "labels": sample["labels"],
             "prompt_ids": sample["prompt_ids"],
-            "image_id": int(item["filename"].replace(".jpg", "")),
+            "image_id": int(item["filename"].replace(".jpg", "").replace(".jpeg", "").replace(".png", "")),
         }
 
     def _load_image(self, filename):

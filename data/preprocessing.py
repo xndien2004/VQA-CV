@@ -4,6 +4,17 @@ import unicodedata
 from unidecode import unidecode
 import random
 
+def canonicalize(text: str) -> str:
+    if text is None:
+        return ""
+
+    text = text.lower()
+    text = unicodedata.normalize("NFC", text)
+    text = re.sub(f"[{re.escape(string.punctuation)}]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+
+    return text
+
 def normalize_text(text):
     text = text.translate(str.maketrans("", "", string.punctuation))
     text = text.lower().strip()
