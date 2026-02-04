@@ -54,3 +54,13 @@ def remove_vietnamese_accents(sentence, ratio=0.5):
         else:
             output += char
     return output
+
+def remove_repeated_substrings(text: str) -> str:
+    pattern = re.compile(r'(.+?)\1+')
+
+    prev = None
+    while prev != text:
+        prev = text
+        text = pattern.sub(r'\1', text)
+
+    return text

@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 
 from transformers import AutoTokenizer, SiglipImageProcessor
 
-from data.preprocessing import preprocess_sentence
+from data.preprocessing import preprocess_sentence, remove_repeated_substrings
 
 
 STRICT_SYSTEM_PROMPT = "Bạn là trợ lý chuyên trả lời câu hỏi dựa trên nội dung văn bản xuất hiện trong hình ảnh và các thông tin khác bổ sung từ hình ảnh (nếu có)."
@@ -58,7 +58,7 @@ class ViVQAProcessor:
         return cls(tokenizer=tokenizer, image_processor=image_processor, system_prompt=system_prompt)
 
     def build_prompt(self, question: str, caption: Optional[str] = None) -> str:
-        caption_text = f"Mô tả hình ảnh: {caption}\n" if caption is not None else ""
+        caption_text = f"Mô tả hình ảnh: {remove_repeated_substrings(caption)}\n" if caption is not None else ""
 
         return (
             "<|im_start|>system\n"
