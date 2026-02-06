@@ -164,9 +164,15 @@ class SemanticOCREmbedding(nn.Module):
 
     def forward(self,ocr_info):
 
-        det_features = torch.stack([det["det_features"] for det in ocr_info]).to(self.device)
-        rec_features = torch.stack([rec["rec_features"] for rec in ocr_info]).to(self.device)
-        ocr_boxes = torch.stack([box["boxes"] for box in ocr_info]).to(self.device)
+        det_features = torch.stack([
+            torch.as_tensor(det["det_features"]) for det in ocr_info
+        ]).to(self.device)
+        rec_features = torch.stack([
+            torch.as_tensor(rec["rec_features"]) for rec in ocr_info
+        ]).to(self.device)
+        ocr_boxes = torch.stack([
+            torch.as_tensor(box["boxes"]) for box in ocr_info
+        ]).to(self.device)
         
         ocr_feature_emb = (self.layer_norm_det(self.linear_det_features(det_features))+
                         self.layer_norm_rec(self.linear_rec_features(rec_features)))
@@ -184,7 +190,7 @@ class OCREmbeddingBuilder(nn.Module):
         self.spatial_embedding = SpatialCirclePosition(config)
         self.semantic_ocr_embedding = SemanticOCREmbedding(config)
     
-    def forward(self, images: list[str]) -> torch.Tensor:
+    def forward(self, images: list[int]) -> torch.Tensor:
         ocr_info = self.ocr_encoder(images)
         ocr_features = self.semantic_ocr_embedding(ocr_info)
         ocr_features, _ = self.spatial_embedding(ocr_features, ocr_info)

@@ -46,7 +46,7 @@ class ViVQAForCausalLM(Qwen3ForCausalLM, ViVQAMetaForCausalLM):
             image_ids: Optional[torch.LongTensor] = None,
             **kwargs,
             ) -> Tuple:
-
+        assert image_ids is not None, "image_ids none at ViVQAForCausalLM."
         if inputs_embeds is None:
             (
                 input_ids,

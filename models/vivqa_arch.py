@@ -66,31 +66,14 @@ class ViVQAMetaForCausalLM(ABC):
     def get_vision_tower(self):
         return self.get_model().get_vision_tower()
 
-    def encode_images(self, images, image_ids=None, question_embeds=None):
+    def encode_images(self, images, image_ids, question_embeds):
         feats = self.get_model().get_vision_tower()(images)
         projector = self.get_model().mm_projector
-
-        # Try using question-guided projector first (if supported)
-        if question_embeds is not None:
-            try:
-                if image_ids is not None:
-                    return projector(feats, image_ids=image_ids, question_embeds=question_embeds)
-                else:
-                    return projector(feats, question_embeds=question_embeds)
-            except TypeError:
-                # Projector may not accept question_embeds; fall back to original behavior
-                pass
-
-        if image_ids is not None:
-            try:
-                return projector(feats, image_ids)
-            except TypeError:
-                pass
-
-        return projector(feats)
+        assert image_ids is not None, "image_ids none."
+        return projector(feats, image_ids=image_ids, question_embeds=question_embeds)
 
     def prepare_inputs_labels_for_multimodal(
-        self, input_ids, position_ids, attention_mask, past_key_values, labels, images, image_ids=None
+        self, input_ids, position_ids, attention_mask, past_key_values, labels, images, image_ids
     ):
         """
         Prepare multimodal inputs for a causal language model.
@@ -120,16 +103,16 @@ class ViVQAMetaForCausalLM(ABC):
                 attention_mask = torch.cat((attention_mask, pad), dim=1)
                 position_ids = torch.sum(attention_mask, dim=1).unsqueeze(-1) - 1
             return input_ids, position_ids, attention_mask, past_key_values, None, labels, image_ids
+        
+        question_embeds = self.get_model().embed_tokens(input_ids)
 
         if isinstance(images, list) or images.ndim == 5:
             concat_images = torch.cat(list(images), dim=0)
-            image_features = self.encode_images(concat_images, image_ids=image_ids)
+            image_features = self.encode_images(concat_images, image_ids=image_ids, question_embeds=question_embeds)
             split_sizes = [image.shape[0] for image in images]
             image_features = torch.split(image_features, split_sizes, dim=0)
             image_features = [x.flatten(0, 1).to(self.device) for x in image_features]
         else:
-            # Build question embeddings from token ids to guide OCR selection in the projector
-            question_embeds = self.get_model().embed_tokens(input_ids)
             image_features = self.encode_images(images, image_ids=image_ids, question_embeds=question_embeds).to(self.device)
 
         _labels = labels

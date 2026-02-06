@@ -7,7 +7,7 @@ import numpy as np
 import scipy.spatial.distance as distance
 import random
 
-def load_ocr_features(image_id: int, ocr_features_path: str) -> Dict[str, Any]:
+def load_ocr_features(image_id: str, ocr_features_path: str) -> Dict[str, Any]:
     feature_ocr = np.load(ocr_features_path, allow_pickle=True).item()
     return feature_ocr.get(image_id, None)
 
@@ -22,7 +22,7 @@ class Vision_Encode_Ocr_Feature(nn.Module):
         if os.path.isfile(self.ocr_path):
             self.global_ocr_features = np.load(self.ocr_path, allow_pickle=True).item()
          
-    def forward(self, images: List[str]):
+    def forward(self, images: List[int]) -> List[Dict[str, Any]]:
         ocr_info = [self.load_ocr_features(image_id) for image_id in images]
         return ocr_info
     
@@ -49,7 +49,7 @@ class Vision_Encode_Ocr_Feature(nn.Module):
 
     def get_size_ocr(self, image_id: int): 
         if self.global_ocr_features is not None:
-            features = self.global_ocr_features.get(image_id, None)
+            features = self.global_ocr_features.get(str(image_id), None)
             if features is None:
                 return torch.tensor([1,1,1,1])
             w,h=features['weight'],features['height']
@@ -108,9 +108,9 @@ class Vision_Encode_Ocr_Feature(nn.Module):
     
     def load_ocr_features(self, image_id: int) -> Dict[str, Any]:
         if self.global_ocr_features is not None:
-            features = self.global_ocr_features.get(image_id, None)
+            features = self.global_ocr_features.get(str(image_id), None)
         else:
-            features = load_ocr_features(image_id, self.ocr_path)
+            features = load_ocr_features(str(image_id), self.ocr_path)
 
         if features is None:
             return None

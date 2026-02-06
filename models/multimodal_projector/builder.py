@@ -104,6 +104,7 @@ class OCRVisionProjector(nn.Module):
         vision_tokens = self.vision_mlp(vision_feats)       # (B, N_v, H)
 
         if image_ids is None:
+            assert image_ids is not None, "image_ids must be provided for OCRVisionProjector."
             image_tokens = vision_tokens
         else:
             if torch.is_tensor(image_ids):
