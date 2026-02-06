@@ -18,7 +18,7 @@ python3 -m VQA-CV.train \
     --caption_path /home/fit02/dien_workspace/datasets/ViTextVQA/vitextvqa_captions.json \
     --ocr_path /home/fit02/dien_workspace/datasets/ViTextVQA/docr_features_of_vitext.npy \
     --epochs 50 \
-    --batch_size 6 \
+    --batch_size 4 \
     --lr 2e-5 \
     --patience 3 \
     --checkpoint_dir outputs_vitext/ \

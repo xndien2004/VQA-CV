@@ -69,7 +69,6 @@ class ViVQAMetaForCausalLM(ABC):
     def encode_images(self, images, image_ids, question_embeds):
         feats = self.get_model().get_vision_tower()(images)
         projector = self.get_model().mm_projector
-        assert image_ids is not None, "image_ids none."
         return projector(feats, image_ids=image_ids, question_embeds=question_embeds)
 
     def prepare_inputs_labels_for_multimodal(
