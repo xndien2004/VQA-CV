@@ -4,6 +4,24 @@ from typing import Optional, Union, List
 
 from ..ocr_encoder.builder import build_ocr_embedding
 
+def interleave_ratio(vision_tokens, ocr_tokens, v_ratio=2, o_ratio=1):
+    B, Nv, H = vision_tokens.shape
+    _, No, _ = ocr_tokens.shape
+
+    v_idx = 0
+    o_idx = 0
+    chunks = []
+
+    while v_idx < Nv or o_idx < No:
+        if v_idx < Nv:
+            chunks.append(vision_tokens[:, v_idx:v_idx+v_ratio])
+            v_idx += v_ratio
+
+        if o_idx < No:
+            chunks.append(ocr_tokens[:, o_idx:o_idx+o_ratio])
+            o_idx += o_ratio
+
+    return torch.cat(chunks, dim=1)
 
 class ModalityGate(nn.Module):
     """Gates between two modality embeddings in language hidden space.
@@ -81,7 +99,8 @@ class OCRVisionProjector(nn.Module):
             image_ids = image_ids.tolist()
 
         ocr_tokens = self.ocr_embedding(image_ids).to(device)  # (B, N_o, H)
-        image_tokens = torch.cat([vision_tokens, ocr_tokens], dim=1)  # (B, N_v + N_o, H)
+        # image_tokens = torch.cat([vision_tokens, ocr_tokens], dim=1)  # (B, N_v + N_o, H)
+        image_tokens = interleave_ratio(vision_tokens, ocr_tokens)  # (B, N_v + N_o, H)
 
         prefix = self.prefix_tokens.unsqueeze(0).expand(B, -1, -1)
         image_tokens = torch.cat([prefix, image_tokens], dim=1)

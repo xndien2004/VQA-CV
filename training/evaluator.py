@@ -21,7 +21,8 @@ class Evaluator:
         ems, f1s = [], []
         all_preds = []
 
-        for batch in tqdm(dataloader, desc="Evaluating"):
+        pbar = tqdm(dataloader, desc="Evaluating")
+        for batch in pbar:
             batch = {k: v.to(self.device) for k, v in batch.items()}
 
             bs = batch["labels"].size(0)
@@ -56,11 +57,15 @@ class Evaluator:
             for p, g in zip(preds_text, labels_text):
                 em = exact_match(p, g)
                 f1 = f1_score(p, g)
-                print(f"Pred: {p} | Gold: {g} | EM: {em} | F1: {f1}")
+                # print(f"Pred: {p} | Gold: {g} | EM: {em} | F1: {f1}")
                 ems.append(em)
                 f1s.append(f1)
 
             all_preds.extend(preds_text)
+
+            # Update progress bar postfix with running F1/EM
+            if len(ems) > 0:
+                pbar.set_postfix(F1=f"{sum(f1s)/len(f1s):.4f}", EM=f"{sum(ems)/len(ems):.4f}")
 
         report = {
             "EM": sum(ems) / len(ems),
