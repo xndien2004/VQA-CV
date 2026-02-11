@@ -217,12 +217,24 @@ def main():
     else:
         scheduler = None
 
-    # Optionally resume from previously saved checkpoints in a single directory
-    if args.resume_epoch is not None:
-        epoch = args.resume_epoch
-        model_path = os.path.join(args.checkpoint_dir, f"model_epoch_{epoch}.pth")
-        optimizer_path = os.path.join(args.checkpoint_dir, f"optimizer_epoch_{epoch}.pth")
-        scheduler_path = os.path.join(args.checkpoint_dir, f"scheduler_epoch_{epoch}.pth")
+    # Load logs.json and resume from last finished epoch
+    resume_epoch = None
+    if os.path.exists(args.log_path):
+        try:
+            import json
+            with open(args.log_path, "r") as f:
+                logs = json.load(f)
+            if logs:
+                # Find last finished epoch
+                resume_epoch = logs[-1]["epoch"] if "epoch" in logs[-1] else None
+                print(f"Auto-detected resume epoch {resume_epoch} from logs.json")
+        except Exception as e:
+            print(f"Failed to load logs.json: {e}")
+
+    if resume_epoch is not None:
+        model_path = os.path.join(args.checkpoint_dir, f"model_epoch_{resume_epoch}.pth")
+        optimizer_path = os.path.join(args.checkpoint_dir, f"optimizer_epoch_{resume_epoch}.pth")
+        scheduler_path = os.path.join(args.checkpoint_dir, f"scheduler_epoch_{resume_epoch}.pth")
 
         if os.path.exists(model_path):
             state_dict = torch.load(model_path, map_location=device)

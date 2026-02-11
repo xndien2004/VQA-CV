@@ -1,4 +1,4 @@
-export PYTHONPATH="/home/fit02/dien_workspace/VQA-CV:$PYTHONPATH"
+export PYTHONPATH="/home/fit02/dien_workspace/vqa/VQA-CV:$PYTHONPATH"
 echo "Running training script..."
 
 # export CUDA_VISIBLE_DEVICES=1
@@ -11,12 +11,11 @@ echo "Running training script..."
 python3 -m VQA-CV.train \
 	--llm_name Qwen/Qwen3-0.6B \
     --image_encoder_name google/siglip2-so400m-patch16-naflex \
-    --vision_projector_type mlp2x_gelu \
-    --train_path /home/fit02/dien_workspace/datasets/ViTextVQA/train.json \
-    --dev_path /home/fit02/dien_workspace/datasets/ViTextVQA/dev.json \
-    --image_root /home/fit02/dien_workspace/datasets/ViTextVQA/images \
-    --caption_path /home/fit02/dien_workspace/datasets/ViTextVQA/vitextvqa_captions.json \
-    --ocr_path /home/fit02/dien_workspace/datasets/ViTextVQA/docr_features_of_vitext.npy \
+    --train_path /home/fit02/dien_workspace/vqa/dataset/vitextvqa/ViTextVQA_train.json \
+    --dev_path /home/fit02/dien_workspace/vqa/dataset/vitextvqa/ViTextVQA_dev.json \
+    --image_root /home/fit02/dien_workspace/vqa/dataset/vitextvqa/images/st_images \
+    --caption_path /home/fit02/dien_workspace/vqa/dataset/vitextvqa/vitextvqa_captions.json \
+    --ocr_path /home/fit02/dien_workspace/vqa/dataset/vitextvqa/docr_features_of_vitext.npy \
     --epochs 50 \
     --batch_size 4 \
     --lr 2e-5 \
