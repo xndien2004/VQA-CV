@@ -156,6 +156,15 @@ def main():
     model.resize_token_embeddings(len(tokenizer))
 
     model.to(device)
+
+    # Freeze all parameters except mm_projector
+    # print("\nFreezing all parameters except mm_projector...")
+    # for name, param in model.named_parameters():
+    #     if "mm_projector" not in name:
+    #         param.requires_grad = False
+    #     else:
+    #         param.requires_grad = True
+
     print(f"Model has {countTrainableParameters(model):,} trainable parameters.")
     print(f"Model has {countAllParameters(model):,} total parameters.")
 
@@ -269,7 +278,7 @@ def main():
         checkpoint_dir=args.checkpoint_dir,
     )
 
-    trainer.train(args.epochs, early_stopping=EarlyStopping(patience=args.patience))
+    trainer.train(args.epochs, early_stopping=EarlyStopping(patience=args.patience), resume_epoch=resume_epoch)
 
 
 if __name__ == "__main__":

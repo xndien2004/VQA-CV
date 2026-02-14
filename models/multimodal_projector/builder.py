@@ -4,7 +4,7 @@ from typing import Optional, Union, List
 
 from ..ocr_encoder.builder import build_ocr_embedding
 
-def interleave_ratio(vision_tokens, ocr_tokens, v_ratio=2, o_ratio=1):
+def interleave_ratio(vision_tokens, ocr_tokens, v_ratio=1, o_ratio=1):
     B, Nv, H = vision_tokens.shape
     _, No, _ = ocr_tokens.shape
 
@@ -23,36 +23,58 @@ def interleave_ratio(vision_tokens, ocr_tokens, v_ratio=2, o_ratio=1):
 
     return torch.cat(chunks, dim=1)
 
-class ModalityGate(nn.Module):
-    """Gates between two modality embeddings in language hidden space.
-
-    Both img_emb and ocr_emb are expected to have last dim = config.hidden_size.
-    """
-
-    def __init__(self, config=None):
+class CrossModalFusion(nn.Module):
+    def __init__(self, hidden_size, num_heads=8, mlp_ratio=4.0, dropout=0.1):
         super().__init__()
-        hidden_dim = config.hidden_size // 2
 
-        self.gate = nn.Sequential(
-            nn.Linear(config.hidden_size * 2, hidden_dim),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.1),
-            nn.Linear(hidden_dim, config.hidden_size),
-            nn.Sigmoid(),
+        self.cross_attn_v = nn.MultiheadAttention(
+            hidden_size, num_heads, dropout=dropout, batch_first=True
+        )
+        self.cross_attn_o = nn.MultiheadAttention(
+            hidden_size, num_heads, dropout=dropout, batch_first=True
         )
 
-        self.out_proj = nn.Linear(config.hidden_size, config.hidden_size)
+        self.norm1_v = nn.LayerNorm(hidden_size)
+        self.norm1_o = nn.LayerNorm(hidden_size)
 
-    def forward(self, img_emb, ocr_emb):
-        x = torch.cat([img_emb, ocr_emb], dim=-1)
-        gate = self.gate(x)
+        # FFN
+        mlp_hidden = int(hidden_size * mlp_ratio)
 
-        fused = gate * img_emb + (1.0 - gate) * ocr_emb
-        fused = self.out_proj(fused)
+        self.mlp_v = nn.Sequential(
+            nn.Linear(hidden_size, mlp_hidden),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(mlp_hidden, hidden_size),
+            nn.Dropout(dropout),
+        )
 
-        return fused
+        self.mlp_o = nn.Sequential(
+            nn.Linear(hidden_size, mlp_hidden),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(mlp_hidden, hidden_size),
+            nn.Dropout(dropout),
+        )
 
+        self.norm2_v = nn.LayerNorm(hidden_size)
+        self.norm2_o = nn.LayerNorm(hidden_size)
 
+    def forward(self, v, o):
+        # Cross Attention
+        v2, _ = self.cross_attn_v(v, o, o)
+        o2, _ = self.cross_attn_o(o, v, v)
+
+        v = self.norm1_v(v + v2)
+        o = self.norm1_o(o + o2)
+
+        # MLP block
+        v2 = self.mlp_v(v)
+        o2 = self.mlp_o(o)
+
+        v = self.norm2_v(v + v2)
+        o = self.norm2_o(o + o2)
+
+        return v, o
 
 class MLP(nn.Module):
     def __init__(self, config=None):
@@ -79,6 +101,8 @@ class OCRVisionProjector(nn.Module):
         self.vision_mlp = MLP(config)
         self.ocr_embedding = build_ocr_embedding(config)
 
+        # self.cross_modal_fusion = CrossModalFusion(self.hidden_size)
+
         self.prefix_tokens = nn.Parameter(
             torch.randn(self.num_prefix_tokens, self.hidden_size)
         )
@@ -99,6 +123,8 @@ class OCRVisionProjector(nn.Module):
             image_ids = image_ids.tolist()
 
         ocr_tokens = self.ocr_embedding(image_ids).to(device)  # (B, N_o, H)
+
+        # vision_tokens, ocr_tokens = self.cross_modal_fusion(vision_tokens, ocr_tokens)
         # image_tokens = torch.cat([vision_tokens, ocr_tokens], dim=1)  # (B, N_v + N_o, H)
         image_tokens = interleave_ratio(vision_tokens, ocr_tokens)  # (B, N_v + N_o, H)
 

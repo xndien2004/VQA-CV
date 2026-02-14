@@ -27,7 +27,14 @@ class Trainer:
         self.evaluator = evaluator
         self.device = device
         self.log_path = log_path
+        # Load existing logs if available, else start fresh
         self.logs = []
+        if os.path.exists(self.log_path):
+            try:
+                with open(self.log_path, "r") as f:
+                    self.logs = json.load(f)
+            except Exception as e:
+                print(f"Warning: Could not load logs from {self.log_path}: {e}")
         self.use_amp = self.device.type == "cuda"
         if self.use_amp and torch.cuda.is_available() and torch.cuda.is_bf16_supported():
             print("Using bfloat16 precision for training.")
@@ -138,8 +145,33 @@ class Trainer:
             f"  scheduler -> {scheduler_path if self.scheduler is not None else 'N/A'}"
         )
 
-    def train(self, epochs, early_stopping=None):
-        for epoch in range(epochs):
+
+    def train(self, epochs, early_stopping=None, resume_epoch=None):
+        start_epoch = resume_epoch if resume_epoch is not None else 0
+
+        # If logs already exist, determine best_metric and counter for early stopping
+        best_metric = None
+        best_epoch = None
+        patience_counter = 0
+        if self.logs:
+            # Find best EM so far and how many epochs since improvement
+            ems = [log.get("dev_EM", float('-inf')) for log in self.logs]
+            if ems:
+                best_metric = max(ems)
+                best_epoch = self.logs[ems.index(best_metric)]["epoch"]
+                # Count epochs since last improvement
+                patience_counter = 0
+                for em in reversed(ems):
+                    if em < best_metric:
+                        patience_counter += 1
+                    else:
+                        break
+                # Set early_stopping state if provided
+                if early_stopping is not None:
+                    early_stopping.best_metric = best_metric
+                    early_stopping.counter = patience_counter
+
+        for epoch in range(start_epoch, epochs):
             print(f"\nEpoch {epoch+1}/{epochs}")
             train_loss = self.train_epoch(epoch)
             print(f"Train Loss: {train_loss:.4f}")
@@ -158,6 +190,7 @@ class Trainer:
             self.logs.append(log)
 
             os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
+            # Append to log file instead of overwriting
             with open(self.log_path, "w") as f:
                 json.dump(self.logs, f, indent=2)
 
@@ -184,7 +217,7 @@ class Trainer:
                         f"(epoch {best_epoch})"
                     )
                     break
-        
+
         plot_curves(self.log_path, self.log_path.replace(".json", ".png"))
         print(f"Training logs and plots saved to {self.log_path}")
 

@@ -20,7 +20,8 @@ python3 -m VQA-CV.train \
     --batch_size 4 \
     --lr 2e-5 \
     --patience 3 \
-    --checkpoint_dir outputs_vitext_interleave/ \
+    --num_workers 6 \
+    --checkpoint_dir outputs_vitext_1v_1o/ \
     --max_train_samples -1 \
     --max_dev_samples -1 \
     2>&1 | tee train0.6B.log
