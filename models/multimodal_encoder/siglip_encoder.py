@@ -38,14 +38,26 @@ class SiglipVisionTower(nn.Module):
         self.is_model_type = True if "naflex" in self.vision_tower_name.lower() else False
 
     def feature_select(self, image_forward_outs):
-        image_features = image_forward_outs.hidden_states[self.select_layer]
-        if self.select_feature == 'patch':
-            image_features = image_features[:, 1:]
-        elif self.select_feature == 'cls_patch':
-            image_features = image_features
-        else:
-            raise ValueError(f'Unexpected select feature: {self.select_feature}')
-        return image_features
+        # Apply linear-layernorm and alpha for each layer, then sum
+        features_sum = 0
+        for i, layer_features in enumerate(image_forward_outs.hidden_states):
+            # Linear-LayerNorm module for each layer
+            linear = getattr(self, f'linear_{i}', None)
+            layernorm = getattr(self, f'layernorm_{i}', None)
+            alpha = getattr(self, f'alpha_{i}', None)
+            if linear is None:
+                linear = nn.Linear(layer_features.shape[-1], layer_features.shape[-1]).to(layer_features.device)
+                setattr(self, f'linear_{i}', linear)
+            if layernorm is None:
+                layernorm = nn.LayerNorm(layer_features.shape[-1]).to(layer_features.device)
+                setattr(self, f'layernorm_{i}', layernorm)
+            if alpha is None:
+                alpha = nn.Parameter(torch.ones(1)).to(layer_features.device)
+                setattr(self, f'alpha_{i}', alpha)
+
+            processed = layernorm(linear(layer_features)) * alpha
+            features_sum = features_sum + processed
+        return features_sum
 
     def _convert_to_patches(self, pixel_values, patch_size):
         """

@@ -40,9 +40,25 @@ class DINOVisionTower(nn.Module):
         self.is_loaded = True
 
     def feature_select(self, image_forward_outs):
-        image_features = image_forward_outs.hidden_states[self.select_layer]
+        # Apply linear-layernorm and alpha for each layer, then sum
+        features_sum = 0
+        for i, layer_features in enumerate(image_forward_outs.hidden_states):
+            linear = getattr(self, f'linear_{i}', None)
+            layernorm = getattr(self, f'layernorm_{i}', None)
+            alpha = getattr(self, f'alpha_{i}', None)
+            if linear is None:
+                linear = nn.Linear(layer_features.shape[-1], layer_features.shape[-1]).to(layer_features.device)
+                setattr(self, f'linear_{i}', linear)
+            if layernorm is None:
+                layernorm = nn.LayerNorm(layer_features.shape[-1]).to(layer_features.device)
+                setattr(self, f'layernorm_{i}', layernorm)
+            if alpha is None:
+                alpha = nn.Parameter(torch.ones(1)).to(layer_features.device)
+                setattr(self, f'alpha_{i}', alpha)
 
-        return image_features
+            processed = layernorm(linear(layer_features)) * alpha
+            features_sum = features_sum + processed
+        return features_sum
 
     @torch.no_grad()
     def forward(self, images):
