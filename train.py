@@ -39,7 +39,8 @@ def parse_args():
     parser.add_argument("--ocr_path", type=str, default=None, help="Path to OCR features")
 
     parser.add_argument("--epochs", type=int, default=3)
-    parser.add_argument("--batch_size", type=int, default=2)
+    parser.add_argument("--batch_size_train", type=int, default=2)
+    parser.add_argument("--batch_size_dev", type=int, default=2)
     parser.add_argument("--lr", type=float, default=2e-5)
     parser.add_argument(
         "--scheduler_type",
@@ -189,7 +190,7 @@ def main():
 
     train_loader = DataLoader(
         train_set,
-        batch_size=args.batch_size,
+        batch_size=args.batch_size_train,
         shuffle=True,
         num_workers=args.num_workers,
         collate_fn=VQACollator(tokenizer)
@@ -197,7 +198,7 @@ def main():
 
     dev_loader = DataLoader(
         dev_set,
-        batch_size=args.batch_size,
+        batch_size=args.batch_size_dev,
         shuffle=False,
         num_workers=args.num_workers,
         collate_fn=VQACollator(tokenizer)
