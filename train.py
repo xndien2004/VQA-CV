@@ -174,7 +174,8 @@ def main():
         caption_path=args.caption_path,
         tokenizer=tokenizer,
         vision_processor_name=args.image_encoder_name,
-        max_sample=args.max_train_samples
+        max_sample=args.max_train_samples,
+        config=config
     )
     dev_set = VQADataset(
         data_path=args.dev_path,
@@ -182,7 +183,8 @@ def main():
         caption_path=args.caption_path,
         tokenizer=tokenizer,
         vision_processor_name=args.image_encoder_name,
-        max_sample=args.max_dev_samples
+        max_sample=args.max_dev_samples,
+        config=config
     )
 
     train_loader = DataLoader(

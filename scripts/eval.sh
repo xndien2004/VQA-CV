@@ -45,13 +45,12 @@ export CUDA_VISIBLE_DEVICES=0
 python3 -m VQA-CV.infer_eval \
   --llm_name Qwen/Qwen3-0.6B \
   --image_encoder_name google/siglip2-so400m-patch16-naflex \
-  --vision_projector_type mlp2x_gelu \
-  --data_path /home/fit02/dien_workspace/vqa/dataset/recieptvqa/test.csv \
-  --image_root /home/fit02/dien_workspace/vqa/dataset/recieptvqa/images \
-  --caption_path /home/fit02/dien_workspace/vqa/dataset/recieptvqa/recieptvqa_captions.json \
-  --ocr_path /home/fit02/dien_workspace/vqa/dataset/recieptvqa/ocr_features_for_recipevqa.npy \
-  --batch_size 2 \
+  --data_path /home/fit02/dien_workspace/vqa/dataset/vitextvqa/ViTextVQA_test_gt.json \
+  --image_root /home/fit02/dien_workspace/vqa/dataset/vitextvqa/images/st_images \
+  --caption_path /home/fit02/dien_workspace/vqa/dataset/vitextvqa/vitextvqa_captions.json \
+  --ocr_path /home/fit02/dien_workspace/vqa/dataset/vitextvqa/docr_features_of_vitext.npy \
+  --batch_size 8 \
   --max_new_tokens 64 \
   --device cuda \
-  --output_path /home/fit02/dien_workspace/vqa/outputs_ocr \
+  --output_path /home/fit02/dien_workspace/vqa/outputs_vitext_new \
   2>&1 | tee eval.log

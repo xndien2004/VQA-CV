@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Dict, Any
 
 from ..ocr_encoder.builder import build_ocr_embedding
 
@@ -93,18 +93,16 @@ class OCRVisionProjector(nn.Module):
     def forward(
         self,
         vision_feats: torch.Tensor,                         # (B, N_v, D_v)
-        image_ids: Optional[Union[torch.Tensor, List[int]]] = None,
+        ocr_info: List[Dict[str, Any]],                         # List of length B, each dict contains OCR info for one image
     ) -> torch.Tensor:
         B = vision_feats.size(0)
         device = vision_feats.device
 
         vision_tokens = self.vision_mlp(vision_feats)       # (B, N_v, H)
 
-        assert image_ids is not None, "image_ids must be provided for OCRVisionProjector."
-        if torch.is_tensor(image_ids):
-            image_ids = image_ids.tolist()
+        assert ocr_info is not None, "ocr_info cannot be None for OCRVisionProjector."
 
-        ocr_tokens = self.ocr_embedding(image_ids).to(device)  # (B, N_o, H)
+        ocr_tokens = self.ocr_embedding(ocr_info).to(device)  # (B, N_o, H)
 
         ocr_tokens = self.ocr_cross_attention(vision_tokens, ocr_tokens)
         vision_tokens = self.vision_token_compressor(vision_tokens)  # (B, 64, H)
@@ -126,7 +124,7 @@ class VisionProjector(nn.Module):
             torch.randn(getattr(config, "num_prefix_tokens", 24), config.hidden_size)
         )
 
-    def forward(self, vision_feats, image_ids=None):
+    def forward(self, vision_feats, ocr_info=None):
         B = vision_feats.size(0)
         prefix = self.prefix_tokens.unsqueeze(0).expand(B, -1, -1)
         vision_feats = self.mlp(vision_feats)

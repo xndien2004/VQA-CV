@@ -160,11 +160,14 @@ class Vision_Encode_Ocr_Feature(nn.Module):
             features['rec_features'] = self.pad_tensor(features['rec_features'], self.max_scene_text, 0.)
             features['boxes'] = self.pad_tensor(features['boxes'], self.max_scene_text, 0.)
 
+        
+
         ocr_info={
-                "det_features": features["det_features"].float().detach().cpu(),
-                "rec_features": features["rec_features"].float().detach().cpu(),
-                "boxes": features["boxes"].float().detach().cpu(),
-                'height': features['height'],
-                'width': features['weight'],
+                "ocr_det_features": features["det_features"].float().detach().cpu(),
+                "ocr_rec_features": features["rec_features"].float().detach().cpu(),
+                "ocr_boxes": features["boxes"].float().detach().cpu(),
+                'ocr_height': features['height'],
+                'ocr_width': features['weight'],
+                "ocr_text": features["texts"]
                 }
         return ocr_info

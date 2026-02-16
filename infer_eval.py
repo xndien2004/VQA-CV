@@ -104,8 +104,8 @@ def infer_and_eval(args):
 
     model.resize_token_embeddings(len(tokenizer))
 
-    state_dict = torch.load(f"{args.output_path}/best_model.pth", map_location="cpu")
-    model.load_state_dict(state_dict)
+    state_dict = torch.load(f"{args.output_path}/best_model.pth")
+    model.load_state_dict(state_dict, strict=False)
     model.to(device)
     model.eval()
 

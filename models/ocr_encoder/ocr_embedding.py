@@ -2,8 +2,6 @@ import torch
 from torch import nn
 import numpy as np
 
-from .ocr_encoding import Vision_Encode_Ocr_Feature
-
 class ScaledDotProductAttention(nn.Module):
     '''
     Scaled dot-product attention
@@ -116,9 +114,9 @@ class SpatialCirclePosition(ScaledDotProductAttention):
         image_sizes = []
         boxes =[]
         for item in info:
-            size=torch.tensor([item['width'],item['height'],item['width'],item['height']])
+            size=torch.tensor([item['ocr_width'],item['ocr_height'],item['ocr_width'],item['ocr_height']])
             image_sizes.append(size)
-            boxes.append(item["boxes"]*size)
+            boxes.append(item["ocr_boxes"]*size)
         # Đưa về cùng device với features để tránh lỗi device mismatch
         image_sizes = torch.stack(image_sizes).to(features.device)
         boxes = torch.stack(boxes).to(features.device)
@@ -165,13 +163,13 @@ class SemanticOCREmbedding(nn.Module):
     def forward(self,ocr_info):
 
         det_features = torch.stack([
-            torch.as_tensor(det["det_features"]) for det in ocr_info
+            torch.as_tensor(det["ocr_det_features"]) for det in ocr_info
         ]).to(self.device)
         rec_features = torch.stack([
-            torch.as_tensor(rec["rec_features"]) for rec in ocr_info
+            torch.as_tensor(rec["ocr_rec_features"]) for rec in ocr_info
         ]).to(self.device)
         ocr_boxes = torch.stack([
-            torch.as_tensor(box["boxes"]) for box in ocr_info
+            torch.as_tensor(box["ocr_boxes"]) for box in ocr_info
         ]).to(self.device)
         
         ocr_feature_emb = (self.layer_norm_det(self.linear_det_features(det_features))+
@@ -186,12 +184,10 @@ class SemanticOCREmbedding(nn.Module):
 class OCREmbeddingBuilder(nn.Module):
     def __init__(self, config) -> None:
         super().__init__()
-        self.ocr_encoder = Vision_Encode_Ocr_Feature(config)
         self.spatial_embedding = SpatialCirclePosition(config)
         self.semantic_ocr_embedding = SemanticOCREmbedding(config)
     
-    def forward(self, images: list[int]) -> torch.Tensor:
-        ocr_info = self.ocr_encoder(images)
+    def forward(self, ocr_info) -> torch.Tensor:
         ocr_features = self.semantic_ocr_embedding(ocr_info)
         ocr_features, _ = self.spatial_embedding(ocr_features, ocr_info)
         return ocr_features

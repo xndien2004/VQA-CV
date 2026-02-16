@@ -9,6 +9,7 @@ from torch.utils.data import Dataset
 from transformers import SiglipImageProcessor
 
 from models.processor import ViVQAProcessor, STRICT_SYSTEM_PROMPT
+from models.ocr_encoder.ocr_encoding import Vision_Encode_Ocr_Feature
 from utils.utils import load_data
 
 class VQADataset(Dataset):
@@ -20,6 +21,7 @@ class VQADataset(Dataset):
         tokenizer: any = None,
         vision_processor_name: str=None,
         max_sample: int = -1,
+        config: dict = None
     ):
         self.data_path = Path(data_path)
         self.image_root = Path(image_root)
@@ -30,10 +32,18 @@ class VQADataset(Dataset):
         image_processor.crop_size = image_processor.size
         self.processor = ViVQAProcessor(tokenizer=self.tokenizer, image_processor=image_processor,
                         system_prompt=STRICT_SYSTEM_PROMPT)
+        
+        self.ocr_encoder = Vision_Encode_Ocr_Feature(config=config)
 
         self.data = load_data(self.data_path).to_dict("records")
         if max_sample > 0:
             self.data = self.data[:max_sample]
+
+        # load captions once
+        self.captions = None
+        if self.caption_path is not None:
+            with open(self.caption_path, "r", encoding="utf-8") as f:
+                self.captions = json.load(f)
 
     def __len__(self):
         return len(self.data)
@@ -41,18 +51,20 @@ class VQADataset(Dataset):
     def _get_caption(self, image_filename):
         if self.caption_path is None:
             return None
-        with open(self.caption_path, 'r', encoding="utf-8") as f:
-            captions = json.load(f)
-        return captions.get(image_filename, None)
+        return self.captions.get(image_filename, None)
 
     def __getitem__(self, idx):
         item = self.data[idx]
         image = self._load_image(item["filename"])
+        image_id = str(item["filename"].replace(".jpg", "").replace(".jpeg", "").replace(".png", ""))
+        ocr_info = self.ocr_encoder([image_id])
+        ocr_info = ocr_info[0] if isinstance(ocr_info, list) else ocr_info
         sample = self.processor.preprocess_train(
             image=image,
             question=item["question"],
             answer=item["answer"],
-            caption=self._get_caption(item["filename"])
+            caption=self._get_caption(item["filename"]),
+            ocr_text =ocr_info['ocr_text'],
         )
 
         return {
@@ -60,7 +72,7 @@ class VQADataset(Dataset):
             "input_ids": sample["input_ids"],
             "labels": sample["labels"],
             "prompt_ids": sample["prompt_ids"],
-            "image_id": int(item["filename"].replace(".jpg", "").replace(".jpeg", "").replace(".png", "")),
+            **(ocr_info if isinstance(ocr_info, dict) else {})
         }
 
     def _load_image(self, filename):

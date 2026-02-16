@@ -43,10 +43,10 @@ class ViVQAForCausalLM(Qwen3ForCausalLM, ViVQAMetaForCausalLM):
             output_hidden_states: Optional[bool] = None,
             images: Optional[torch.FloatTensor] = None,
             return_dict: Optional[bool] = None,
-            image_ids: Optional[torch.LongTensor] = None,
+            ocr_info: Optional[dict] = None,
             **kwargs,
             ) -> Tuple:
-        assert image_ids is not None, "image_ids none at ViVQAForCausalLM."
+        assert ocr_info is not None, "ocr_info none at ViVQAForCausalLM."
         if inputs_embeds is None:
             (
                 input_ids,
@@ -55,7 +55,7 @@ class ViVQAForCausalLM(Qwen3ForCausalLM, ViVQAMetaForCausalLM):
                 past_key_values,
                 inputs_embeds,
                 labels,
-                image_ids
+                ocr_info
             ) = self.prepare_inputs_labels_for_multimodal(
                 input_ids,
                 position_ids,
@@ -63,7 +63,7 @@ class ViVQAForCausalLM(Qwen3ForCausalLM, ViVQAMetaForCausalLM):
                 past_key_values,
                 labels,
                 images,
-                image_ids
+                ocr_info
             )
 
         return super().forward(
@@ -84,6 +84,7 @@ class ViVQAForCausalLM(Qwen3ForCausalLM, ViVQAMetaForCausalLM):
                                       **kwargs):
         images = kwargs.pop("images", None)
         image_ids = kwargs.pop("image_ids", None)
+        ocr_info = kwargs.pop("ocr_info", None)
 
         _inputs = super().prepare_inputs_for_generation(
             input_ids,
@@ -97,4 +98,6 @@ class ViVQAForCausalLM(Qwen3ForCausalLM, ViVQAMetaForCausalLM):
             _inputs["images"] = images
         if image_ids is not None:
             _inputs["image_ids"] = image_ids
+        if ocr_info is not None:
+            _inputs["ocr_info"] = ocr_info
         return _inputs

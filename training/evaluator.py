@@ -23,15 +23,47 @@ class Evaluator:
 
         pbar = tqdm(dataloader, desc="Evaluating")
         for batch in pbar:
-            batch = {k: v.to(self.device) for k, v in batch.items()}
+            ocr_keys = [k for k in batch.keys() if k.startswith("ocr_")]
+            ocr_batch = {k: batch[k] for k in ocr_keys}
+            non_ocr_batch = {k: v for k, v in batch.items() if not k.startswith("ocr_")}
 
+            moved_batch = {}
+            for k, v in non_ocr_batch.items():
+                try:
+                    moved_batch[k] = v.to(self.device)
+                except Exception:
+                    moved_batch[k] = v
+            for k, v in ocr_batch.items():
+                moved_batch[k] = v
+            batch = moved_batch
+
+            with torch.cuda.amp.autocast(enabled=self.use_amp, dtype=self.autocast_dtype):
+                ocr_keys = [k for k in batch.keys() if k.startswith("ocr_")]
+                if len(ocr_keys) > 0:
+                    batch_size = batch["images"].size(0)
+                    ocr_info_list = []
+                    for i in range(batch_size):
+                        sample_ocr = {}
+                        for k in ocr_keys:
+                            v = batch[k]
+                            try:
+                                if isinstance(v, torch.Tensor):
+                                    sample_ocr[k] = v[i]
+                                else:
+                                    # assume list-like
+                                    sample_ocr[k] = v[i]
+                            except Exception:
+                                sample_ocr[k] = None
+                        ocr_info_list.append(sample_ocr)
+                else:
+                    ocr_info_list = None
             bs = batch["labels"].size(0)
             total_samples += bs
 
             gen_kwargs = dict(
                 input_ids=batch["prompt_ids"],
                 images=batch["images"],
-                image_ids=batch.get("image_ids", None),
+                ocr_info=ocr_info_list,
                 max_new_tokens=64,
                 do_sample=False,
                 temperature=0.0,
@@ -62,6 +94,25 @@ class Evaluator:
                 f1s.append(f1)
 
             all_preds.extend(preds_text)
+
+            # free large temporaries per batch
+            try:
+                del generated_ids
+            except Exception:
+                pass
+            try:
+                del labels_clean
+            except Exception:
+                pass
+            try:
+                del ocr_info_list
+            except Exception:
+                pass
+            if torch.cuda.is_available():
+                try:
+                    torch.cuda.empty_cache()
+                except Exception:
+                    pass
 
             # Update progress bar postfix with running F1/EM
             if len(ems) > 0:
