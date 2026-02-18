@@ -117,7 +117,6 @@ class SpatialCirclePosition(ScaledDotProductAttention):
             size=torch.tensor([item['ocr_width'],item['ocr_height'],item['ocr_width'],item['ocr_height']])
             image_sizes.append(size)
             boxes.append(item["ocr_boxes"]*size)
-        # Đưa về cùng device với features để tránh lỗi device mismatch
         image_sizes = torch.stack(image_sizes).to(features.device)
         boxes = torch.stack(boxes).to(features.device)
         bs, nq, _ = boxes.shape

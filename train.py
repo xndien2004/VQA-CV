@@ -27,8 +27,8 @@ def parse_args():
 
     parser.add_argument("--llm_name", type=str, required=True)
     parser.add_argument("--image_encoder_name", type=str, required=True, help="SigLIP vision tower name/path")
-    parser.add_argument("--vision_projector_type", type=str, default="mlp2x_gelu",
-                        help="Type of multimodal projector (e.g., mlp2x_gelu, linear, sppv1)")
+    parser.add_argument("--vision_projector_type", type=str, default="mlp_prefix",
+                        help="Type of multimodal projector")
     parser.add_argument("--pretrain_mm_mlp_adapter", type=str, default=None,
                         help="Optional path to pretrained mm_projector weights")
 
@@ -59,11 +59,13 @@ def parse_args():
     parser.add_argument("--patience", type=int, default=5)
     parser.add_argument("--max_train_samples", type=int, default=-1)
     parser.add_argument("--max_dev_samples", type=int, default=-1)
+    parser.add_argument("--max_length", type=int, default=4096, help="Maximum sequence length for tokenizer")
 
     parser.add_argument("--sort_type", type=str, default="top-left bottom-right", help="OCR sorting type: random, score, top-left bottom-right, None")
     parser.add_argument("--scene_text_threshold", type=float, default=0.3, help="OCR score threshold to filter scene text")
     parser.add_argument("--d_det", type=int, default=256, help="Dimension of OCR detection features")
     parser.add_argument("--d_rec", type=int, default=256, help="Dimension of OCR recognition features")
+    parser.add_argument("--max_scene_text", type=int, default=32, help="Maximum number of OCR tokens to include")
 
     parser.add_argument(
         "--log_path",
@@ -130,7 +132,7 @@ def main():
         config.scene_text_threshold = args.scene_text_threshold
         config.d_det = args.d_det
         config.d_rec = args.d_rec
-        config.max_scene_text = 32
+        config.max_scene_text = args.max_scene_text
 
     # Initialize ViVQA model (Qwen3 + SigLIP vision tower)
     model = ViVQAForCausalLM.from_pretrained(
@@ -176,7 +178,8 @@ def main():
         tokenizer=tokenizer,
         vision_processor_name=args.image_encoder_name,
         max_sample=args.max_train_samples,
-        config=config
+        config=config,
+        max_length=args.max_length
     )
     dev_set = VQADataset(
         data_path=args.dev_path,
@@ -185,7 +188,8 @@ def main():
         tokenizer=tokenizer,
         vision_processor_name=args.image_encoder_name,
         max_sample=args.max_dev_samples,
-        config=config
+        config=config,
+        max_length=args.max_length
     )
 
     train_loader = DataLoader(

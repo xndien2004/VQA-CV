@@ -59,7 +59,8 @@ class ViVQAProcessor:
 
     def build_prompt(self, question: str, caption: Optional[str] = None, ocr_text: Optional[str] = None) -> str:
         caption_text = f"Mô tả hình ảnh: {remove_repeated_substrings(caption)}\n" if caption is not None else ""
-        ocr_text = f"OCR: {', '.join(ocr_text)}\n" if ocr_text is not None else ""
+        ocr_text = f"OCR token: {', '.join(ocr_text)}\n" if ocr_text is not None else ""
+        # ocr_text = ""
 
         return (
             "<|im_start|>system\n"
@@ -67,9 +68,9 @@ class ViVQAProcessor:
             "<|im_end|>\n"
             "<|im_start|>user\n"
             "<im_start> <image> <im_end>\n"
-            f"Câu hỏi: {question}\n"
             f"{caption_text}"
             f"{ocr_text}"
+            f"Dựa trên các thông tin về ảnh hãy trả lời câu hỏi: {question}\n"
             "Trả lời ngắn gọn (chỉ đáp án):"
             "<|im_end|>\n"
             "<|im_start|>assistant\n"
@@ -81,7 +82,8 @@ class ViVQAProcessor:
         question: str,
         answer: str,
         caption: Optional[str] = None,
-        ocr_text: Optional[str] = None
+        ocr_text: Optional[str] = None,
+        max_length: int = 4096
     ) -> Dict[str, torch.Tensor]:
         """Preprocess a single training example (image + question + answer).
 
@@ -94,7 +96,7 @@ class ViVQAProcessor:
         pixel_values = image_inputs["pixel_values"].squeeze(0)
         prompt = self.build_prompt(question, caption=caption, ocr_text=ocr_text)
 
-        prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=False, max_length=3072, truncation=True)
+        prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=False, max_length=max_length, truncation=True)
 
         answer_ids = self.tokenizer.encode(answer + " <|im_end|>", add_special_tokens=False)
 

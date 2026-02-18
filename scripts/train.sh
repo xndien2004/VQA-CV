@@ -8,6 +8,8 @@ echo "Running training script..."
 
 # google/siglip2-so400m-patch16-512
 # google/siglip2-so400m-patch16-naflex
+
+# nvidia/C-RADIOv4-SO400M
 python3 -m VQA-CV.train \
 	--llm_name Qwen/Qwen3-0.6B \
     --image_encoder_name google/siglip2-so400m-patch16-naflex \
@@ -19,6 +21,8 @@ python3 -m VQA-CV.train \
     --epochs 50 \
     --batch_size_train 4 \
     --batch_size_dev 6 \
+    --max_scene_text 32 \
+    --max_length 2048 \
     --lr 2e-5 \
     --patience 3 \
     --num_workers 6 \
@@ -26,6 +30,7 @@ python3 -m VQA-CV.train \
     --max_train_samples -1 \
     --max_dev_samples -1 \
     2>&1 | tee train.log
+
 
 # python3 -m VQA-CV.train \
 # 	--llm_name Qwen/Qwen3-0.6B \

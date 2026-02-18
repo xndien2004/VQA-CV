@@ -23,40 +23,20 @@ class Evaluator:
 
         pbar = tqdm(dataloader, desc="Evaluating")
         for batch in pbar:
-            ocr_keys = [k for k in batch.keys() if k.startswith("ocr_")]
-            ocr_batch = {k: batch[k] for k in ocr_keys}
-            non_ocr_batch = {k: v for k, v in batch.items() if not k.startswith("ocr_")}
-
-            moved_batch = {}
-            for k, v in non_ocr_batch.items():
-                try:
-                    moved_batch[k] = v.to(self.device)
-                except Exception:
-                    moved_batch[k] = v
-            for k, v in ocr_batch.items():
-                moved_batch[k] = v
-            batch = moved_batch
-
+            batch_ocr = {k: v for k, v in batch.items() if k.startswith("ocr_")}
+            batch = {k: v.to(self.device) for k, v in batch.items() if isinstance(v, torch.Tensor)}
             with torch.cuda.amp.autocast(enabled=self.use_amp, dtype=self.autocast_dtype):
-                ocr_keys = [k for k in batch.keys() if k.startswith("ocr_")]
-                if len(ocr_keys) > 0:
-                    batch_size = batch["images"].size(0)
-                    ocr_info_list = []
-                    for i in range(batch_size):
-                        sample_ocr = {}
-                        for k in ocr_keys:
-                            v = batch[k]
-                            try:
-                                if isinstance(v, torch.Tensor):
-                                    sample_ocr[k] = v[i]
-                                else:
-                                    # assume list-like
-                                    sample_ocr[k] = v[i]
-                            except Exception:
-                                sample_ocr[k] = None
-                        ocr_info_list.append(sample_ocr)
-                else:
-                    ocr_info_list = None
+                ocr_keys = [k for k in batch_ocr.keys()]
+                batch_size = batch["images"].size(0)
+                ocr_info_list = []
+                for i in range(batch_size):
+                    sample_ocr = {}
+                    for k in ocr_keys:
+                        if batch_ocr[k] is None:
+                            continue
+                        v = batch_ocr[k]
+                        sample_ocr[k] = v[i]
+                    ocr_info_list.append(sample_ocr)
             bs = batch["labels"].size(0)
             total_samples += bs
 

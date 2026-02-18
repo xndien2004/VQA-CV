@@ -1,27 +1,8 @@
 import torch
 import torch.nn as nn
-from typing import Optional, Union, List, Dict, Any
+from typing import List, Dict, Any
 
 from ..ocr_encoder.builder import build_ocr_embedding
-
-def interleave_ratio(vision_tokens, ocr_tokens, v_ratio=1, o_ratio=1):
-    B, Nv, H = vision_tokens.shape
-    _, No, _ = ocr_tokens.shape
-
-    v_idx = 0
-    o_idx = 0
-    chunks = []
-
-    while v_idx < Nv or o_idx < No:
-        if v_idx < Nv:
-            chunks.append(vision_tokens[:, v_idx:v_idx+v_ratio])
-            v_idx += v_ratio
-
-        if o_idx < No:
-            chunks.append(ocr_tokens[:, o_idx:o_idx+o_ratio])
-            o_idx += o_ratio
-
-    return torch.cat(chunks, dim=1)
 
 class MLPTokenCompressor(nn.Module):
     def __init__(self, input_tokens=256, output_tokens=64):
@@ -92,8 +73,8 @@ class OCRVisionProjector(nn.Module):
 
     def forward(
         self,
-        vision_feats: torch.Tensor,                         # (B, N_v, D_v)
-        ocr_info: List[Dict[str, Any]],                         # List of length B, each dict contains OCR info for one image
+        vision_feats: torch.Tensor,
+        ocr_info: List[Dict[str, Any]],
     ) -> torch.Tensor:
         B = vision_feats.size(0)
         device = vision_feats.device
@@ -106,8 +87,6 @@ class OCRVisionProjector(nn.Module):
 
         ocr_tokens = self.ocr_cross_attention(vision_tokens, ocr_tokens)
         vision_tokens = self.vision_token_compressor(vision_tokens)  # (B, 64, H)
-        # image_tokens = torch.cat([vision_tokens, ocr_tokens], dim=1)  # (B, N_v + N_o, H)
-        # image_tokens = interleave_ratio(vision_tokens, ocr_tokens)  # (B, N_v + N_o, H)
         image_tokens = torch.cat([vision_tokens, ocr_tokens], dim=1)  # (B, N_v + N_o, H)
 
         prefix = self.prefix_tokens.unsqueeze(0).expand(B, -1, -1)
@@ -132,7 +111,7 @@ class VisionProjector(nn.Module):
         return vision_feats
 
 def build_vision_projector(config, delay_load=False, **kwargs):
-    projector_type = getattr(config, 'mm_projector_type', 'mlp2x_gelu')
+    projector_type = getattr(config, 'mm_projector_type', 'mlp_prefix')
 
     if getattr(config, 'ocr_path', None) is not None:
         print("Using OCRVisionProjector as vision projector.")
@@ -140,9 +119,6 @@ def build_vision_projector(config, delay_load=False, **kwargs):
 
     if projector_type == 'linear':
         return nn.Linear(config.mm_hidden_size, config.hidden_size)
-
-    elif projector_type == 'mlp2x_gelu':
-        return MLP(config)
     elif projector_type == 'mlp_prefix':
         return VisionProjector(config)
     raise ValueError(f'Unknown projector type: {projector_type}')

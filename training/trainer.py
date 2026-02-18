@@ -61,39 +61,20 @@ class Trainer:
             total=len(self.train_loader),
         ) as pbar:
             for batch in self.train_loader:
-                ocr_keys = [k for k in batch.keys() if k.startswith("ocr_")]
-                ocr_batch = {k: batch[k] for k in ocr_keys}
-                non_ocr_batch = {k: v for k, v in batch.items() if not k.startswith("ocr_")}
-
-                moved_batch = {}
-                for k, v in non_ocr_batch.items():
-                    try:
-                        moved_batch[k] = v.to(self.device)
-                    except Exception:
-                        moved_batch[k] = v
-                for k, v in ocr_batch.items():
-                    moved_batch[k] = v
-                batch = moved_batch
+                batch_ocr = {k: v for k, v in batch.items() if k.startswith("ocr_")}
+                batch = {k: v.to(self.device) for k, v in batch.items() if isinstance(v, torch.Tensor)}
                 with torch.cuda.amp.autocast(enabled=self.use_amp, dtype=self.autocast_dtype):
-                    ocr_keys = [k for k in batch.keys() if k.startswith("ocr_")]
-                    if len(ocr_keys) > 0:
-                        batch_size = batch["images"].size(0)
-                        ocr_info_list = []
-                        for i in range(batch_size):
-                            sample_ocr = {}
-                            for k in ocr_keys:
-                                v = batch[k]
-                                try:
-                                    if isinstance(v, torch.Tensor):
-                                        sample_ocr[k] = v[i]
-                                    else:
-                                        # assume list-like
-                                        sample_ocr[k] = v[i]
-                                except Exception:
-                                    sample_ocr[k] = None
-                            ocr_info_list.append(sample_ocr)
-                    else:
-                        ocr_info_list = None
+                    ocr_keys = [k for k in batch_ocr.keys()]
+                    batch_size = batch["images"].size(0)
+                    ocr_info_list = []
+                    for i in range(batch_size):
+                        sample_ocr = {}
+                        for k in ocr_keys:
+                            if batch_ocr[k] is None:
+                                continue
+                            v = batch_ocr[k]
+                            sample_ocr[k] = v[i]
+                        ocr_info_list.append(sample_ocr)
 
                     outputs = self.model(
                         input_ids=batch["input_ids"],
@@ -207,6 +188,9 @@ class Trainer:
             print(f"\nEpoch {epoch+1}/{epochs}")
             train_loss = self.train_epoch(epoch)
             print(f"Train Loss: {train_loss:.4f}")
+            
+            self.save_checkpoint(epoch + 1)
+
             dev_metrics = self.evaluator.evaluate(self.dev_loader)
 
             current_lr = self.optimizer.param_groups[0]["lr"]
@@ -227,9 +211,6 @@ class Trainer:
                 json.dump(self.logs, f, indent=2)
 
             print(log)
-
-            # Always save separate checkpoints for this epoch
-            self.save_checkpoint(epoch + 1)
 
             if early_stopping is not None:
                 stop, improved = early_stopping.step(dev_metrics["EM"])

@@ -51,6 +51,8 @@ python3 -m VQA-CV.infer_eval \
   --ocr_path /home/fit02/dien_workspace/vqa/dataset/vitextvqa/docr_features_of_vitext.npy \
   --batch_size 8 \
   --max_new_tokens 64 \
+  --max_scene_text 32 \
+  --max_length 2048 \
   --device cuda \
   --output_path /home/fit02/dien_workspace/vqa/outputs_vitext_new \
   2>&1 | tee eval.log

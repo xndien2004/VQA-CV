@@ -8,10 +8,6 @@ class VQACollator:
 
     def __call__(self, batch):
         bs = len(batch)
-
-        # =======================
-        # Vision + Text part
-        # =======================
         images = torch.stack([b["images"] for b in batch])
 
         input_ids = pad_sequence(
@@ -39,31 +35,11 @@ class VQACollator:
         for i, seq in enumerate(prompt_seqs):
             prompt_ids[i, -seq.size(0):] = seq
 
-        det_feats_list = [b["ocr_det_features"] for b in batch]  # [Ni, D]
-        rec_feats_list = [b["ocr_rec_features"] for b in batch]  # [Ni, D]
-        boxes_list     = [b["ocr_boxes"] for b in batch]         # [Ni, 4]
-
-        ocr_lengths = torch.tensor([x.size(0) for x in det_feats_list], dtype=torch.long)
-        max_ocr_len = int(ocr_lengths.max().item())
-
-        det_dim = det_feats_list[0].size(-1)
-        rec_dim = rec_feats_list[0].size(-1)
-
-        # pad features
-        ocr_det_features = det_feats_list[0].new_zeros((bs, max_ocr_len, det_dim))
-        ocr_rec_features = rec_feats_list[0].new_zeros((bs, max_ocr_len, rec_dim))
-        ocr_boxes = boxes_list[0].new_zeros((bs, max_ocr_len, 4))
-
-        for i in range(bs):
-            n = det_feats_list[i].size(0)
-
-            ocr_det_features[i, :n] = det_feats_list[i]
-            ocr_rec_features[i, :n] = rec_feats_list[i]
-            ocr_boxes[i, :n] = boxes_list[i]
-
-        # height/width (scalar -> tensor)
-        ocr_height = torch.tensor([b["ocr_height"] for b in batch], dtype=torch.long)
-        ocr_width  = torch.tensor([b["ocr_width"] for b in batch], dtype=torch.long)
+        det_feats_list = [b["ocr_det_features"] for b in batch] if "ocr_det_features" in batch[0] else None  # [Ni, D]
+        rec_feats_list = [b["ocr_rec_features"] for b in batch] if "ocr_rec_features" in batch[0] else None  # [Ni, D]
+        boxes_list     = [b["ocr_boxes"] for b in batch] if "ocr_boxes" in batch[0] else None  # [Ni, 4]
+        ocr_height = torch.tensor([b["ocr_height"] for b in batch], dtype=torch.long) if "ocr_height" in batch[0] else None
+        ocr_width  = torch.tensor([b["ocr_width"] for b in batch], dtype=torch.long) if "ocr_width" in batch[0] else None
 
         return {
             "images": images,
@@ -71,9 +47,9 @@ class VQACollator:
             "attention_mask": attention_mask,
             "labels": labels,
             "prompt_ids": prompt_ids,
-            "ocr_det_features": ocr_det_features,
-            "ocr_rec_features": ocr_rec_features,
-            "ocr_boxes": ocr_boxes,
+            "ocr_det_features": det_feats_list,
+            "ocr_rec_features": rec_feats_list,
+            "ocr_boxes": boxes_list,
             "ocr_height": ocr_height,
             "ocr_width": ocr_width,
         }

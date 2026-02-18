@@ -21,19 +21,23 @@ class VQADataset(Dataset):
         tokenizer: any = None,
         vision_processor_name: str=None,
         max_sample: int = -1,
-        config: dict = None
+        config: dict = None,
+        max_length: int = 4096
     ):
         self.data_path = Path(data_path)
         self.image_root = Path(image_root)
         self.caption_path = caption_path
         self.tokenizer = tokenizer
+        self.max_length = max_length
 
         image_processor = SiglipImageProcessor.from_pretrained(vision_processor_name)
         image_processor.crop_size = image_processor.size
         self.processor = ViVQAProcessor(tokenizer=self.tokenizer, image_processor=image_processor,
                         system_prompt=STRICT_SYSTEM_PROMPT)
         
-        self.ocr_encoder = Vision_Encode_Ocr_Feature(config=config)
+        self.ocr_encoder = None
+        if config is not None and getattr(config, "ocr_path", None) is not None:
+            self.ocr_encoder = Vision_Encode_Ocr_Feature(config=config)
 
         self.data = load_data(self.data_path).to_dict("records")
         if max_sample > 0:
@@ -57,14 +61,15 @@ class VQADataset(Dataset):
         item = self.data[idx]
         image = self._load_image(item["filename"])
         image_id = str(item["filename"].replace(".jpg", "").replace(".jpeg", "").replace(".png", ""))
-        ocr_info = self.ocr_encoder([image_id])
+        ocr_info = self.ocr_encoder([image_id]) if self.ocr_encoder is not None else {}
         ocr_info = ocr_info[0] if isinstance(ocr_info, list) else ocr_info
         sample = self.processor.preprocess_train(
             image=image,
             question=item["question"],
             answer=item["answer"],
             caption=self._get_caption(item["filename"]),
-            ocr_text =ocr_info['ocr_text'],
+            ocr_text =ocr_info['ocr_text'] if ocr_info else None,
+            max_length=self.max_length
         )
 
         return {
@@ -72,7 +77,7 @@ class VQADataset(Dataset):
             "input_ids": sample["input_ids"],
             "labels": sample["labels"],
             "prompt_ids": sample["prompt_ids"],
-            **(ocr_info if isinstance(ocr_info, dict) else {})
+            **ocr_info
         }
 
     def _load_image(self, filename):

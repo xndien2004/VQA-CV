@@ -36,6 +36,9 @@ def parse_args():
                         help="Dimension of OCR detection features")
     parser.add_argument("--d_rec", type=int, default=256,
                         help="Dimension of OCR recognition features")
+    parser.add_argument("--max_scene_text", type=int, default=32,
+                        help="Maximum number of OCR tokens to consider")
+    parser.add_argument("--max_length", type=int, default=4096, help="Maximum sequence length for tokenizer")
 
     parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--max_new_tokens", type=int, default=30)
@@ -80,7 +83,7 @@ def infer_and_eval(args):
         config.scene_text_threshold = args.scene_text_threshold
         config.d_det = args.d_det
         config.d_rec = args.d_rec
-        config.max_scene_text = 32
+        config.max_scene_text = args.max_scene_text
 
     model = ViVQAForCausalLM.from_pretrained(
         args.llm_name,
@@ -116,6 +119,7 @@ def infer_and_eval(args):
         caption_path=args.caption_path,
         tokenizer=tokenizer,
         vision_processor_name=args.image_encoder_name,
+        max_length=args.max_length
         # max_sample=20
     )
 
