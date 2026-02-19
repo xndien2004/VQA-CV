@@ -1,25 +1,24 @@
 from typing import List, Optional, Tuple
 
 import torch
-from transformers.models.qwen3.modeling_qwen3 import Qwen3Model, Qwen3Config, Qwen3ForCausalLM
+from transformers.models.qwen2.modeling_qwen2 import Qwen2Model, Qwen2Config, Qwen2ForCausalLM
 
 from ..vivqa_arch import ViVQAMetaForCausalLM, ViVQAMetaModel
 
 
-class ViVQAConfig(Qwen3Config):
+class ViVQAConfig(Qwen2Config):
     model_type = "vivqa"
 
 
-class ViVQAModel(Qwen3Model, ViVQAMetaModel):
-    """Backbone Qwen3 + module vision (SigLIP + projector)."""
+class ViVQAModel(Qwen2Model, ViVQAMetaModel):
     config_class = ViVQAConfig
 
-    def __init__(self, config: Qwen3Config):
-        Qwen3Model.__init__(self, config)
+    def __init__(self, config: Qwen2Config):
+        Qwen2Model.__init__(self, config)
         ViVQAMetaModel.__init__(self, config)
 
 
-class ViVQAForCausalLM(Qwen3ForCausalLM, ViVQAMetaForCausalLM):
+class ViVQAForCausalLM(Qwen2ForCausalLM, ViVQAMetaForCausalLM):
 
     config_class = ViVQAConfig
 
