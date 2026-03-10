@@ -1,4 +1,4 @@
-export PYTHONPATH="/home/fit02/dien_workspace/vqa/VQA-CV:$PYTHONPATH"
+export PYTHONPATH="/home/fit02/dien_workspace/VQA-CV_ocr:$PYTHONPATH"
 echo "Running training script..."
 
 # export CUDA_VISIBLE_DEVICES=1
@@ -10,23 +10,22 @@ echo "Running training script..."
 # google/siglip2-so400m-patch16-naflex
 
 # nvidia/C-RADIOv4-SO400M
-python3 -m VQA-CV.train \
+python3 -m VQA-CV_ocr.train \
 	--llm_name Qwen/Qwen3-0.6B \
     --image_encoder_name google/siglip2-so400m-patch16-naflex \
     --train_path /home/fit02/dien_workspace/vqa/dataset/vitextvqa/ViTextVQA_train.json \
     --dev_path /home/fit02/dien_workspace/vqa/dataset/vitextvqa/ViTextVQA_dev.json \
     --image_root /home/fit02/dien_workspace/vqa/dataset/vitextvqa/images/st_images \
-    --caption_path /home/fit02/dien_workspace/vqa/dataset/vitextvqa/vitextvqa_captions.json \
     --ocr_path /home/fit02/dien_workspace/vqa/dataset/vitextvqa/docr_features_of_vitext.npy \
     --epochs 50 \
-    --batch_size_train 4 \
-    --batch_size_dev 6 \
+    --batch_size_train 6 \
+    --batch_size_dev 8 \
     --max_scene_text 32 \
     --max_length 2048 \
     --lr 2e-5 \
     --patience 3 \
     --num_workers 6 \
-    --checkpoint_dir outputs_vitext/ \
+    --checkpoint_dir outputs_vitext_ocr/ \
     --max_train_samples -1 \
     --max_dev_samples -1 \
     2>&1 | tee train.log

@@ -63,7 +63,7 @@ class OCRVisionProjector(nn.Module):
         self.num_prefix_tokens = getattr(config, "num_prefix_tokens", 24)
 
         self.vision_mlp = MLP(config)
-        self.vision_token_compressor = MLPTokenCompressor(input_tokens=196, output_tokens=64)
+        self.vision_token_compressor = MLPTokenCompressor(input_tokens=195, output_tokens=64)
         self.ocr_embedding = build_ocr_embedding(config)
         self.ocr_cross_attention = OCRCrossAttention(self.hidden_size)
 

@@ -14,28 +14,10 @@ class SiglipVisionTower(nn.Module):
     
         if not delay_load:
             self.load_model()
-            self.init_layer_fusion() 
         elif getattr(args, 'unfreeze_mm_vision_tower', False):
             self.load_model()
-            self.init_layer_fusion() 
         else:
             self.cfg_only = SiglipVisionConfig.from_pretrained(self.vision_tower_name)
-
-    def init_layer_fusion(self):
-        num_layers = self.config.num_hidden_layers + 1
-        hidden_size = self.config.hidden_size
-
-        self.fusion_linears = nn.ModuleList([
-            nn.Linear(hidden_size, hidden_size) for _ in range(num_layers)
-        ])
-
-        self.fusion_layernorms = nn.ModuleList([
-            nn.LayerNorm(hidden_size) for _ in range(num_layers)
-        ])
-
-        self.fusion_alphas = nn.ParameterList([
-            nn.Parameter(torch.ones(1)) for _ in range(num_layers)
-        ])
 
     def load_model(self, device_map=None):
         if self.is_loaded:
@@ -53,22 +35,16 @@ class SiglipVisionTower(nn.Module):
 
         self.is_loaded = True
         self.is_model_type = True if "naflex" in self.vision_tower_name.lower() else False
-        # Ensure fusion layers are initialized after the model is loaded
-        if not hasattr(self, 'fusion_linears') or not hasattr(self, 'fusion_layernorms'):
-            self.init_layer_fusion()
 
     def feature_select(self, image_forward_outs):
-        hidden_states = image_forward_outs.hidden_states
-
-        features_sum = 0.0
-        for i, layer_features in enumerate(hidden_states):
-            processed = self.fusion_layernorms[i](
-                self.fusion_linears[i](layer_features)
-            ) * self.fusion_alphas[i]
-
-            features_sum = features_sum + processed
-
-        return features_sum
+        image_features = image_forward_outs.hidden_states[self.select_layer]
+        if self.select_feature == 'patch':
+            image_features = image_features[:, 1:]
+        elif self.select_feature == 'cls_patch':
+            image_features = image_features
+        else:
+            raise ValueError(f'Unexpected select feature: {self.select_feature}')
+        return image_features
 
     def _convert_to_patches(self, pixel_values, patch_size):
         """
@@ -85,14 +61,17 @@ class SiglipVisionTower(nn.Module):
         num_patches_height = height // patch_size
         num_patches_width = width // patch_size
 
+        # Reshape to patches: [bs, channels, num_patches_h, patch_size, num_patches_w, patch_size]
         patches = pixel_values.reshape(
             batch_size, channels,
             num_patches_height, patch_size,
             num_patches_width, patch_size
         )
 
+        # Rearrange to: [bs, num_patches_h, num_patches_w, patch_size, patch_size, channels]
         patches = patches.permute(0, 2, 4, 3, 5, 1)
 
+        # Flatten patches: [bs, num_patches_h * num_patches_w, patch_size * patch_size * channels]
         patches = patches.reshape(
             batch_size,
             num_patches_height * num_patches_width,
