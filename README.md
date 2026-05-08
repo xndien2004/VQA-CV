@@ -1,53 +1,106 @@
-# VQA-CV: Visual Question Answering with Qwen2 + SigLIP
+# VQA-CV: Visual Question Answering for Vietnamese Documents
 
-This repository contains a simple Visual Question Answering (VQA) system for receipts and similar documents. The model answers short questions about an image (e.g., brand name, price) with a single, concise text answer.
+This repository contains a multimodal Visual Question Answering (VQA) system for Vietnamese document images (receipts, scene text, OCR-based QA). The model answers questions about an image with a concise text answer.
 
 ## Architecture Overview
 
-- **Language model**: Qwen2 / Qwen2.5 (decoder-only, causal LM).
-- **Vision encoder**: SigLIP `google/siglip-so400m-patch14-384`.
+- **Language model**: Qwen2.5 / Qwen3 (decoder-only, causal LM).
+- **Vision encoder**: SigLIP2 `google/siglip2-so400m-patch16-naflex` (or C-RADIO / DINOv2).
+- **OCR encoder**: encodes scene-text features from pre-extracted OCR embeddings (`.npy`).
 - **Multimodal fusion**:
-  - Images are encoded into patch features by SigLIP.
-  - A projector maps visual features into the Qwen hidden space.
-  - Visual tokens are inserted at `<image>` positions inside the text sequence.
-  - Training and inference are both done via a single causal LM head (next-token prediction).
+  - Images are encoded into patch features by the vision encoder.
+  - A projector maps visual features into the LLM hidden space.
+  - OCR token features are fused alongside visual tokens.
+  - Training and inference use a single causal LM head (next-token prediction).
+
+## Datasets
+
+| Key | HuggingFace repo |
+|---|---|
+| `recieptvqa` | [nhonhoccode/RecieptVQA](https://huggingface.co/datasets/nhonhoccode/RecieptVQA) |
+| `viocrvqa` | [nhonhoccode/ViOCRVQA](https://huggingface.co/datasets/nhonhoccode/ViOCRVQA) |
+| `vitextvqa` | [nhonhoccode/ViTextVQA](https://huggingface.co/datasets/nhonhoccode/ViTextVQA) |
+
+## Download Datasets
+
+Set `OUTPUT_DIR` in `scripts/download_dataset.sh`, then run:
+
+```bash
+# Download all datasets
+bash scripts/download_dataset.sh
+
+# Download a single dataset
+bash scripts/download_dataset.sh --dataset vitextvqa
+```
+
+Datasets will be saved to `OUTPUT_DIR/<key>/` (e.g. `./datasets/vitextvqa/`). Any `images.zip` found inside will be extracted automatically.
+
+To download via Python directly:
+
+```bash
+python data_preparation/download_dataset.py --output_dir ./datasets --dataset all
+```
 
 ## Run on Kaggle with GitHub token
 
-In a Kaggle Notebook, you can clone the repo with a personal access token and install dependencies as follows (replace `<TOKEN>` with your GitHub token):
+In a Kaggle Notebook, clone the repo with a personal access token and install dependencies (replace `<TOKEN>` with your GitHub token):
 
 ```bash
 !git clone https://<TOKEN>@github.com/xndien2004/VQA-CV.git
 !pip install -r /kaggle/working/VQA-CV/requirements.txt
-``
-
-## Training with bash (train.sh)
-
-After cloning and installing requirements, you can launch training using the provided shell script. In a Kaggle Notebook (or any bash environment):
-
-```bash
-%cd /kaggle/working/VQA-CV
-!bash scripts/train.sh
 ```
 
-The default `scripts/train.sh` script:
+## Training
 
-- Sets `PYTHONPATH` to point to the cloned repo.
-- Calls `python3 -m VQA-CV.train` with reasonable defaults:
-  - `--llm_name Qwen/Qwen2.5-0.5B-Instruct`
-  - `--image_encoder_name google/siglip-so400m-patch14-384`
-  - `--train_path`, `--dev_path`, `--image_root` pointing to the Kaggle dataset paths.
+Edit `scripts/train.sh` to set at least:
 
-To adapt training to your own data, edit `scripts/train.sh` and change at least:
+- `--train_path` and `--dev_path` — JSON annotation files.
+- `--image_root` — folder containing images.
+- `--ocr_path` — `.npy` file with pre-extracted OCR features (optional).
 
-- `--train_path` and `--dev_path` to your CSV/JSON files.
-- `--image_root` to the folder that contains your images.
-- Optionally `--epochs`, `--batch_size`, `--lr`, `--max_train_samples`, `--max_dev_samples`.
-
-Once these paths and hyperparameters are set, rerun:
+Then run:
 
 ```bash
-!bash scripts/train.sh
+bash scripts/train.sh
 ```
 
-This will start training the multimodal VQA model and save the best checkpoint to `outputs/best_model.pth`.
+Key training arguments:
+
+| Argument | Description |
+|---|---|
+| `--llm_name` | HuggingFace LLM (e.g. `Qwen/Qwen3-0.6B`) |
+| `--image_encoder_name` | Vision encoder (e.g. `google/siglip2-so400m-patch16-naflex`) |
+| `--epochs` | Number of training epochs |
+| `--batch_size_train` | Training batch size |
+| `--lr` | Learning rate |
+| `--patience` | Early stopping patience |
+| `--checkpoint_dir` | Directory to save best checkpoint |
+
+## Evaluation
+
+```bash
+bash scripts/eval.sh
+```
+
+## Project Structure
+
+```
+VQA-CV/
+├── data/                   # Dataset & collator classes
+├── data_preparation/       # Download & preprocessing scripts
+│   └── download_dataset.py
+├── models/                 # Model architecture
+│   ├── language_model/
+│   ├── multimodal_encoder/
+│   └── ocr_encoder/
+├── scripts/                # Shell scripts for training / eval / download
+│   ├── download_dataset.sh
+│   ├── train.sh
+│   ├── train_sft.sh
+│   └── eval.sh
+├── training/               # Trainer, evaluator, metrics
+├── utils/
+├── train.py
+├── train_sft.py
+└── requirements.txt
+```
