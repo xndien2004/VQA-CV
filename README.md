@@ -17,9 +17,9 @@ This repository contains a multimodal Visual Question Answering (VQA) system for
 
 | Key | HuggingFace repo |
 |---|---|
-| `recieptvqa` | [nhonhoccode/RecieptVQA](https://huggingface.co/datasets/nhonhoccode/RecieptVQA) |
-| `viocrvqa` | [nhonhoccode/ViOCRVQA](https://huggingface.co/datasets/nhonhoccode/ViOCRVQA) |
-| `vitextvqa` | [nhonhoccode/ViTextVQA](https://huggingface.co/datasets/nhonhoccode/ViTextVQA) |
+| `recieptvqa` | [xuandin/RecieptVQA](https://huggingface.co/datasets/xuandin/RecieptVQA) |
+| `viocrvqa` | [xuandin/ViOCRVQA](https://huggingface.co/datasets/xuandin/ViOCRVQA) |
+| `vitextvqa` | [xuandin/ViTextVQA](https://huggingface.co/datasets/xuandin/ViTextVQA) |
 
 ## Download Datasets
 
